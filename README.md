@@ -1,8 +1,6 @@
-# Associative Dreaming MCP Server
-
 <img width="1024" height="1024" alt="image" src="https://github.com/user-attachments/assets/0ef0af17-d48b-4e32-8674-855af43811a6" />
 
-The Associative Dreaming MCP server is a creative, lateral thinking counterpart to the Sequential Thinking server. While Sequential Thinking represents "Yang" - convergent, logical, linear thinking - Associative Dreaming provides the "Yin" - divergent, intuitive, rhizomatic exploration of concept spaces.
+A creative, lateral thinking counterpart to the Sequential Thinking server. While Sequential Thinking represents "Yang" - convergent, logical, linear thinking - Associative Dreaming provides the "Yin" - divergent, intuitive, rhizomatic exploration of concept spaces.
 
 ## Features
 
