@@ -26,8 +26,13 @@ export class ObliqueConstraintTool {
      */
     loadConstraints() {
         try {
-            // Path is relative to the module location, not the working directory
-            const moduleDir = path.dirname(new URL(import.meta.url).pathname).replace(/^\/([a-zA-Z]:)/, '$1');
+            // Use import.meta.url to get the current module's URL
+            const __filename = new URL(import.meta.url).pathname;
+            // Handle Windows paths properly
+            let moduleDir = path.dirname(__filename);
+            if (process.platform === 'win32' && moduleDir.startsWith('/')) {
+                moduleDir = moduleDir.slice(1);
+            }
             const dataPath = path.join(moduleDir, '..', 'data', 'oblique-strategies.json');
             const rawData = fs.readFileSync(dataPath, 'utf8');
             const data = JSON.parse(rawData);
