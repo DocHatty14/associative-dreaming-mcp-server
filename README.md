@@ -1,186 +1,280 @@
-<img width="1024" height="1024" alt="image" src="https://github.com/user-attachments/assets/0ef0af17-d48b-4e32-8674-855af43811a6" />
+<div align="center">
 
-A creative, lateral thinking counterpart to the Sequential Thinking server. While Sequential Thinking represents "Yang" - convergent, logical, linear thinking - Associative Dreaming provides the "Yin" - divergent, intuitive, rhizomatic exploration of concept spaces.
+<img width="1024" height="1024" alt="Associative Dreaming - Your AI's Creative Unconscious" src="https://github.com/user-attachments/assets/0ef0af17-d48b-4e32-8674-855af43811a6" />
 
-## Features
+# Associative Dreaming
 
-- **Rhizomatic Graph Structure**: Unlike the linear history of Sequential Thinking, maintains a network of concepts and connections
-- **Semantic Drift**: Controlled hallucination through stochastic random walks in concept space
-- **Bisociative Synthesis**: Creates novel connections by merging unrelated matrices of thought
-- **Oblique Constraints**: Injects productive constraints to break linear thinking patterns
-- **Serendipity Scan**: Automates the search for "unknown unknowns" in your thinking
+### *Unlock the creative unconscious of your AI*
 
-## Installation
+**Transform linear thinking into breakthrough insights through controlled semantic exploration**
 
-### Using NPX (Recommended)
+[![npm version](https://badge.fury.io/js/@associative%2Fserver-associative-dreaming.svg)](https://www.npmjs.com/package/@associative/server-associative-dreaming)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
 
-You can run the server directly using npx:
+[Quick Start](#-quick-start) • [Features](#-what-makes-it-extraordinary) • [Tools](#-creative-engines) • [Examples](#-see-it-in-action)
+
+</div>
+
+---
+
+## 🌟 What Makes It Extraordinary
+
+**Associative Dreaming** is the creative counterpart to sequential reasoning—where logic meets imagination, where structure meets serendipity. While traditional AI thinking follows straight lines, this server introduces the **cognitive wandering** that leads to breakthroughs.
+
+<table>
+<tr>
+<td width="50%">
+
+### 🕸️ **Neural Concept Networks**
+Move beyond linear thought chains. Your AI maintains an interconnected web of ideas, mirroring how creative minds actually work—through association, not just deduction.
+
+</td>
+<td width="50%">
+
+### 🎲 **Controlled Serendipity**
+Harness productive randomness. Discover the "adjacent possible" through guided exploration of conceptual territories you didn't know existed.
+
+</td>
+</tr>
+<tr>
+<td width="50%">
+
+### 🔮 **Bisociative Synthesis**
+Arthur Koestler's theory of creativity, implemented. Merge unrelated domains to generate insights that pure logic could never reach—the essence of innovation.
+
+</td>
+<td width="50%">
+
+### ⚡ **Pattern Interruption**
+Break through creative blocks with Brian Eno's Oblique Strategies and SCAMPER techniques. When you're stuck, inject productive constraints.
+
+</td>
+</tr>
+</table>
+
+---
+
+## 🚀 Quick Start
+
+### Instant Launch (Zero Installation)
 
 ```bash
 npx @associative/server-associative-dreaming
 ```
 
-### Local Installation
+**That's it.** No setup, no configuration files, no dependencies to manage.
 
-1. Clone the repository
-2. Install dependencies:
-   ```bash
-   npm install
-   ```
-3. Build the server:
-   ```bash
-   npm run build
-   ```
-4. Run the server:
-   ```bash
-   npm start
-   ```
+### Integrate with Your Workflow
 
-## Configuration
+<details>
+<summary><b>📱 Claude Desktop</b></summary>
 
-### Claude Desktop Integration
-
-Add this to your `claude_desktop_config.json`:
+Add to your `claude_desktop_config.json`:
 
 ```json
 {
   "mcpServers": {
     "associative-dreaming": {
       "command": "npx",
-      "args": [
-        "-y",
-        "@associative/server-associative-dreaming"
-      ]
+      "args": ["-y", "@associative/server-associative-dreaming"]
     }
   }
 }
 ```
+</details>
 
-### VS Code Integration
+<details>
+<summary><b>💻 VS Code</b></summary>
 
-Add this to your VS Code MCP configuration:
+Add to your MCP configuration:
 
 ```json
 {
   "servers": {
     "associative-dreaming": {
       "command": "npx",
-      "args": [
-        "-y",
-        "@associative/server-associative-dreaming"
-      ]
+      "args": ["-y", "@associative/server-associative-dreaming"]
     }
   }
 }
 ```
+</details>
 
-## Tools
+<details>
+<summary><b>🔧 Local Development</b></summary>
 
-### semantic_drift
+```bash
+git clone <repository-url>
+cd associative-dreaming-mcp-server
+npm install
+npm run build
+npm start
+```
+</details>
 
-The Controlled Hallucination Engine - A stochastic random walk through concept space.
+---
 
-This tool explores semantically distant yet contextually relevant concepts. Unlike nearest-neighbor searches that find synonyms, semantic drift deliberately seeks concepts in the "Serendipity Zone" (not too close, not too far) to promote lateral thinking.
+## 🎨 Creative Engines
 
-**Parameters:**
-- `anchorConcept`: The starting point for semantic drift (required)
-- `driftMagnitude`: How far to drift from the anchor (0.0-1.0, higher = more distant)
-- `temperature`: Additional randomness in selection (0.0-1.0)
+### `semantic_drift`
+**The Controlled Hallucination Engine**
 
-### bisociative_synthesis
+Explore the conceptual horizon through intelligent semantic wandering. This isn't about finding synonyms—it's about discovering ideas in the **Serendipity Zone**: distant enough to be surprising, close enough to be relevant.
 
-The Combinatorial Engine - Forces the intersection of unrelated matrices of thought.
-
-This tool identifies structural similarities between disparate domains to generate creative insights. Based on Arthur Koestler's theory of Bisociation, it maps patterns from one domain onto another, creating conceptual bridges that can lead to innovation.
-
-**Parameters:**
-- `matrixA`: The problem domain (required)
-- `matrixB`: The stimulus domain (optional - will auto-select if not provided)
-- `blendType`: Specific structural pattern to use for mapping (optional)
-
-### oblique_constraint
-
-The Entropy Injector - Introduces creative constraints to break linear thinking.
-
-This tool implements Brian Eno's Oblique Strategies and SCAMPER techniques to act as a "Circuit Breaker" for rigid thinking. By introducing deliberate constraints, it forces creative thinking and pattern breaking when you're stuck.
-
-**Parameters:**
-- `currentBlock`: Description of the impasse or block you're facing (required)
-- `constraintType`: Type of constraint (oblique, scamper, creative, or random)
-
-### serendipity_scan
-
-The Unknown Unknown Finder - Searches for surprising connections and insights.
-
-This tool automates the search for "Unknown Unknowns" - connections and insights that would typically be missed through linear thinking. It analyzes the dream graph for structural holes and disconnected clusters, then identifies potential bridges.
-
-**Parameters:**
-- `currentContext`: Description of your current focus or exploration area (required)
-- `noveltyThreshold`: How novel vs. relevant results should be (0.0-1.0)
-- `scanType`: The type of serendipitous insight to find (bridge, gap, pattern, random)
-
-## Usage Examples
-
-### Example: Semantic Drift
-
-```json
+```typescript
 {
-  "tool": "semantic_drift",
-  "input": {
-    "anchorConcept": "neural network",
-    "driftMagnitude": 0.6
-  }
+  anchorConcept: "neural networks",
+  driftMagnitude: 0.6,      // 0 = conservative, 1 = adventurous
+  temperature: 0.7          // add creative randomness
 }
 ```
 
-### Example: Bisociative Synthesis
+**Perfect for:** Breaking out of obvious associations • Finding unexpected angles • Divergent thinking sessions
 
-```json
+---
+
+### `bisociative_synthesis`
+**The Combinatorial Innovation Engine**
+
+Force the collision of unrelated domains to generate breakthrough insights. Based on Arthur Koestler's *The Act of Creation*, this tool finds **structural patterns** in one domain and maps them onto your problem space.
+
+```typescript
 {
-  "tool": "bisociative_synthesis",
-  "input": {
-    "matrixA": "software development",
-    "matrixB": "ecology"
-  }
+  matrixA: "user interface design",
+  matrixB: "jazz improvisation",   // leave blank for auto-selection
+  blendType: "metaphoric"          // optional: guide the synthesis
 }
 ```
 
-### Example: Oblique Constraint
+**Perfect for:** Innovation challenges • Creative problem-solving • Cross-domain insight discovery
+
+---
+
+### `oblique_constraint`
+**The Pattern Interrupt Engine**
+
+When you're stuck in a mental loop, inject a creative constraint to force new pathways. Implements **Brian Eno's Oblique Strategies** and **SCAMPER techniques** to break rigid thinking patterns.
+
+```typescript
+{
+  currentBlock: "Our product is feature-complete but users aren't engaged",
+  constraintType: "oblique"        // oblique | scamper | creative | random
+}
+```
+
+**Perfect for:** Creative blocks • Decision paralysis • Stale thinking patterns
+
+---
+
+### `serendipity_scan`
+**The Unknown Unknown Finder**
+
+Automate the search for what you don't know you're missing. Analyzes your concept network for **structural holes**, **disconnected clusters**, and **latent patterns**, then surfaces surprising connections.
+
+```typescript
+{
+  currentContext: "Exploring AI-enhanced creativity workflows",
+  noveltyThreshold: 0.7,           // 0 = safe, 1 = wild
+  scanType: "bridge"               // bridge | gap | pattern | random
+}
+```
+
+**Perfect for:** Research • Strategic planning • Finding hidden opportunities
+
+---
+
+## 💡 See It in Action
+
+### Scenario: Breaking Through a Design Impasse
 
 ```json
+// You're redesigning an e-commerce checkout flow
 {
   "tool": "oblique_constraint",
   "input": {
-    "currentBlock": "I'm stuck on designing a user interface that's both simple and powerful",
+    "currentBlock": "Our checkout needs to be fast but also build trust",
     "constraintType": "oblique"
   }
 }
 ```
 
-### Example: Serendipity Scan
+**Response:** *"Honor thy error as a hidden intention"* → Leads to exploring how checkout "mistakes" could reveal user intent and improve the experience.
+
+---
+
+### Scenario: Finding Your Blue Ocean
 
 ```json
+// Your SaaS is in a crowded market
 {
-  "tool": "serendipity_scan",
+  "tool": "bisociative_synthesis",
   "input": {
-    "currentContext": "I'm researching how AI can enhance human creativity",
-    "scanType": "bridge"
+    "matrixA": "project management software",
+    "matrixB": "improvisational theater"
   }
 }
 ```
 
-## Development
+**Response:** Maps the principles of "Yes, and..." and adaptive collaboration onto PM tools, leading to a novel real-time collaborative planning approach.
 
-To run in development mode:
+---
 
+### Scenario: Research Discovery
+
+```json
+// You're exploring emerging trends
+{
+  "tool": "serendipity_scan",
+  "input": {
+    "currentContext": "Future of remote work collaboration",
+    "scanType": "gap",
+    "noveltyThreshold": 0.8
+  }
+}
+```
+
+**Response:** Identifies an unexplored connection between asynchronous communication patterns and musical polyrhythms.
+
+---
+
+## 🧠 The Philosophy
+
+**Associative Dreaming** embodies the **Yin** to Sequential Thinking's **Yang**:
+
+| Sequential Thinking | Associative Dreaming |
+|:---:|:---:|
+| Convergent | **Divergent** |
+| Logical | **Intuitive** |
+| Linear | **Networked** |
+| Deductive | **Abductive** |
+| Answers | **Questions** |
+
+Great breakthroughs require both. This server gives your AI the ability to **wander productively**, to make **non-obvious connections**, and to **discover what wasn't being searched for**.
+
+---
+
+## 🛠️ Development
+
+### Watch Mode
 ```bash
 npm run build:watch
 ```
 
 ### Environment Variables
+- `DISABLE_DREAM_LOGGING` — Set to `"true"` to disable execution logging
 
-- `DISABLE_DREAM_LOGGING`: Set to "true" to disable logging of dream tool executions
+---
 
-## License
+## 📄 License
 
-This project is licensed under the MIT License - see the LICENSE file for details.
+MIT License - See [LICENSE](LICENSE) for details
+
+---
+
+<div align="center">
+
+**Built for creators, researchers, and anyone who believes the best ideas come from unexpected places**
+
+[Report Bug](../../issues) • [Request Feature](../../issues) • [Contribute](CONTRIBUTING.md)
+
+</div>
