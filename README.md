@@ -4,6 +4,8 @@
 
 # Associative Dreaming
 
+- The yin to sequential thinking's yang -
+
 ### *Unlock the creative unconscious of your AI*
 
 **Transform linear thinking into breakthrough insights through controlled semantic exploration**
