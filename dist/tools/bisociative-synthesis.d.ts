@@ -1,12 +1,16 @@
 /**
- * Bisociative Synthesis - The Combinatorial Engine
+ * Bisociative Synthesis - The Combinatorial Engine (ENHANCED)
  *
  * This tool forces the intersection of two unrelated matrices of thought.
- * Based on Arthur Koestler's theory of Bisociation and Conceptual Blending Theory,
- * it identifies structural similarities between disparate domains to generate
- * creative insights and bridge concepts.
+ * Based on Arthur Koestler's theory of Bisociation and Conceptual Blending Theory.
+ *
+ * ENHANCEMENTS:
+ * - Expanded from 6 to 15 diverse domains
+ * - Context-aware, domain-specific mappings
+ * - Richer explanations with actual cross-domain insights
+ * - Better bridge concept generation
  */
-import { DreamGraph } from '../graph.js';
+import { DreamGraph } from "../graph.js";
 export interface BisociativeSynthesisInput {
     matrixA: string;
     matrixB?: string;
@@ -21,7 +25,7 @@ export interface BisociativeSynthesisOutput {
     explanation: string;
 }
 /**
- * The Bisociative Synthesis tool
+ * The Bisociative Synthesis tool (ENHANCED VERSION)
  * Combines concepts from different matrices of thought
  */
 export declare class BisociativeSynthesisTool {
@@ -29,31 +33,27 @@ export declare class BisociativeSynthesisTool {
     constructor(dreamGraph: DreamGraph);
     performSynthesis(input: BisociativeSynthesisInput): BisociativeSynthesisOutput;
     /**
-     * Selects a random domain different from matrixA
+     * Selects a complementary domain that's different enough to be interesting
      */
-    private selectRandomDomain;
+    private selectComplementaryDomain;
     /**
-     * Identifies patterns in a given domain
-     */
-    private identifyPatterns;
-    /**
-     * Finds an isomorphic pattern between two domains
+     * Finds the best isomorphic pattern
      */
     private findIsomorphism;
     /**
-     * Creates a mapping between concepts in the two domains
+     * Creates context-aware mappings based on actual domain content
      */
-    private createMapping;
+    private createContextAwareMapping;
     /**
-     * Generates a bridge concept connecting the two domains
+     * Generates a compelling bridge concept
      */
     private generateBridgeConcept;
     /**
-     * Creates an explanation of the bisociative synthesis
+     * Creates a rich, actionable explanation
      */
-    private createExplanation;
+    private createRichExplanation;
     /**
-     * Updates the dream graph with the bisociative synthesis
+     * Updates the dream graph
      */
     private updateDreamGraph;
 }

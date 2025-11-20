@@ -8,7 +8,6 @@
 import { EdgeType } from '../graph.js';
 import fs from 'fs';
 import path from 'path';
-import { fileURLToPath } from 'url';
 /**
  * The Oblique Constraint tool
  * Injects creative constraints to break linear thinking
@@ -27,10 +26,8 @@ export class ObliqueConstraintTool {
      */
     loadConstraints() {
         try {
-            // Get the directory of the current module using fileURLToPath
-            const __filename = fileURLToPath(import.meta.url);
-            const __dirname = path.dirname(__filename);
-            const dataPath = path.join(__dirname, '..', 'data', 'oblique-strategies.json');
+            // Path is relative to where the process is run
+            const dataPath = path.join(process.cwd(), 'src', 'data', 'oblique-strategies.json');
             const rawData = fs.readFileSync(dataPath, 'utf8');
             const data = JSON.parse(rawData);
             this.strategies = data.strategies || [];
