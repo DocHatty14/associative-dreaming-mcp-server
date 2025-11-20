@@ -842,10 +842,10 @@ export class SemanticDriftTool {
         const numberOfHops = this.calculateOptimalHops(calibratedMagnitude);
         // V3.0: Cross-domain chance now scales smoothly with calibrated magnitude
         const crossDomainChance = Math.max(0.1, Math.min(0.5, calibratedMagnitude * 0.5));
-        explanationSteps.push(`🎯 Starting from: "${anchorConcept}"`);
-        explanationSteps.push(`📏 Drift magnitude: ${(driftMagnitude * 100).toFixed(0)}%`);
-        explanationSteps.push(`🌡️  Temperature: ${(temperature * 100).toFixed(0)}%`);
-        explanationSteps.push(`\n🚶 DRIFT PATH:\n`);
+        explanationSteps.push(`Starting from: "${anchorConcept}"`);
+        explanationSteps.push(`Drift magnitude: ${(driftMagnitude * 100).toFixed(0)}%`);
+        explanationSteps.push(`Temperature: ${(temperature * 100).toFixed(0)}%`);
+        explanationSteps.push(`\nDrift path:\n`);
         // Perform the drift with calibrated targeting
         for (let hop = 0; hop < numberOfHops; hop++) {
             // V3.0: Use calibrated magnitude directly, with minimal progressive boost
@@ -860,7 +860,7 @@ export class SemanticDriftTool {
                     currentConcept = bridge.concept;
                     totalDistanceTraveled += bridge.distance;
                     const cleanReason = (bridge.reason || "").replace(/^reverse: /, "");
-                    explanationSteps.push(`   🌉 CROSS-DOMAIN LEAP → "${bridge.concept}"`);
+                    explanationSteps.push(`   [cross-domain leap] -> "${bridge.concept}"`);
                     explanationSteps.push(`      Distance: ${(bridge.distance * 100).toFixed(0)}% | ${cleanReason}`);
                     driftPath.push(currentConcept);
                     visitedConcepts.add(currentConcept.toLowerCase().trim());
@@ -877,7 +877,7 @@ export class SemanticDriftTool {
                 currentConcept = fallback.concept;
                 totalDistanceTraveled += fallback.distance;
                 const cleanReason = (fallback.reason || "").replace(/^reverse: /, "");
-                explanationSteps.push(`   🎲 DOMAIN JUMP → "${fallback.concept}"`);
+                explanationSteps.push(`   [domain jump] -> "${fallback.concept}"`);
                 explanationSteps.push(`      Distance: ${(fallback.distance * 100).toFixed(0)}% | ${cleanReason}`);
             }
             else {
@@ -1091,70 +1091,54 @@ export class SemanticDriftTool {
         let driftCharacter = "";
         if (requestedMagnitude < 0.3) {
             driftCharacter =
-                "🔵 Conservative drift - staying close to familiar territory";
+                "Conservative drift - staying close to familiar territory";
         }
         else if (requestedMagnitude < 0.6) {
             driftCharacter =
-                "🟡 Moderate exploration - balancing familiarity with novelty";
+                "Moderate exploration - balancing familiarity with novelty";
         }
         else {
             driftCharacter =
-                "🔴 Adventurous journey - seeking distant conceptual spaces";
+                "Adventurous journey - seeking distant conceptual spaces";
         }
         const pathDescription = driftPath.length === 2
             ? "a direct connection"
             : `a ${driftPath.length - 1}-step journey`;
         // V3.0: Accuracy indicator
-        const accuracyIndicator = accuracyPercentage >= 85 ? "🎯 Excellent" :
-            accuracyPercentage >= 70 ? "✅ Good" :
-                accuracyPercentage >= 50 ? "⚠️  Fair" : "❌ Needs adjustment";
-        const explanation = `
-╔═══════════════════════════════════════════════════════════╗
-║           🌊 SEMANTIC DRIFT ANALYSIS v3.0                ║
-╚═══════════════════════════════════════════════════════════╝
-
-${explanationSteps.join("\n")}
-
-┌───────────────────────────────────────────────────────────┐
-│ 📊 DRIFT CHARACTERISTICS                                  │
-└───────────────────────────────────────────────────────────┘
-
-  • Strategy: ${driftCharacter}
-  • Requested magnitude: ${(requestedMagnitude * 100).toFixed(0)}%
-  • Actual distance traveled: ${(actualDistance * 100).toFixed(0)}%
-  • Drift accuracy: ${accuracyPercentage.toFixed(0)}% ${accuracyIndicator}
-  • Path length: ${pathDescription}
-  • Full path: ${driftPath.join(" → ")}
-
-┌───────────────────────────────────────────────────────────┐
-│ 💡 WHY THIS DRIFT MATTERS                                 │
-└───────────────────────────────────────────────────────────┘
-
-Starting from "${anchorConcept}", this semantic drift has brought
-us to "${finalConcept}" - a concept that is ${actualDistance < 0.3
-            ? "closely related and offers a complementary angle"
-            : actualDistance < 0.6
-                ? "semantically adjacent yet distinct enough to spark new thinking"
-                : "surprisingly distant yet connected through creative conceptual bridges"}.
-
-🎯 POTENTIAL INSIGHTS:
-
-${this.generateInsights(anchorConcept, finalConcept, actualDistance, driftPath)}
-
-┌───────────────────────────────────────────────────────────┐
-│ 🔮 CREATIVE PROMPT                                        │
-└───────────────────────────────────────────────────────────┘
-
-Consider: How might the principles, patterns, or properties of
-"${finalConcept}" illuminate new aspects of "${anchorConcept}"?
-
-What if you treated "${anchorConcept}" AS IF it were "${finalConcept}"?
-
-╔═══════════════════════════════════════════════════════════╗
-║  Drift complete. Use this connection to break assumptions.║
-╚═══════════════════════════════════════════════════════════╝
-`;
-        return explanation;
+        const accuracyIndicator = accuracyPercentage >= 85 ? "Excellent" :
+            accuracyPercentage >= 70 ? "Good" :
+                accuracyPercentage >= 50 ? "Fair" : "Needs adjustment";
+        const explanationLines = [
+            "=== Semantic Drift Analysis v3.0 ===",
+            "",
+            ...explanationSteps,
+            "",
+            "Drift characteristics:",
+            `- Strategy: ${driftCharacter}`,
+            `- Requested magnitude: ${(requestedMagnitude * 100).toFixed(0)}%`,
+            `- Actual distance traveled: ${(actualDistance * 100).toFixed(0)}%`,
+            `- Drift accuracy: ${accuracyPercentage.toFixed(0)}% (${accuracyIndicator})`,
+            `- Path length: ${pathDescription}`,
+            `- Full path: ${driftPath.join(" -> ")}`,
+            "",
+            "Why this drift matters:",
+            `Starting from "${anchorConcept}", this semantic drift has brought`,
+            `us to "${finalConcept}" - a concept that is ${actualDistance < 0.3
+                ? "closely related and offers a complementary angle"
+                : actualDistance < 0.6
+                    ? "semantically adjacent yet distinct enough to spark new thinking"
+                    : "surprisingly distant yet connected through creative conceptual bridges"}.`,
+            "",
+            "Potential insights:",
+            this.generateInsights(anchorConcept, finalConcept, actualDistance, driftPath),
+            "",
+            "Creative prompt:",
+            `Consider how the principles, patterns, or properties of "${finalConcept}" could illuminate new aspects of "${anchorConcept}".`,
+            `What if you treated "${anchorConcept}" as if it were "${finalConcept}"?`,
+            "",
+            "Drift complete. Use this connection to break assumptions.",
+        ];
+        return explanationLines.join("\n");
     }
     /**
      * Generates contextual insights about the drift
@@ -1162,27 +1146,27 @@ What if you treated "${anchorConcept}" AS IF it were "${finalConcept}"?
     generateInsights(fromConcept, toConcept, distance, path) {
         const insights = [];
         if (distance < 0.4) {
-            insights.push(`  • The proximity between "${fromConcept}" and "${toConcept}" suggests`);
-            insights.push(`    examining shared structural properties or mechanisms.`);
-            insights.push(`  • Look for direct analogies and parallel patterns.`);
+            insights.push(`- The proximity between "${fromConcept}" and "${toConcept}" suggests`);
+            insights.push(`  examining shared structural properties or mechanisms.`);
+            insights.push(`- Look for direct analogies and parallel patterns.`);
         }
         else if (distance < 0.7) {
-            insights.push(`  • This medium-distance connection invites metaphorical thinking.`);
-            insights.push(`  • The path ${path.slice(1, -1).join(" → ")} reveals hidden bridges`);
-            insights.push(`    between seemingly separate domains.`);
-            insights.push(`  • Consider how "${toConcept}" might reframe "${fromConcept}".`);
+            insights.push(`- This medium-distance connection invites metaphorical thinking.`);
+            insights.push(`- The path ${path.slice(1, -1).join(" -> ")} reveals hidden bridges`);
+            insights.push(`  between seemingly separate domains.`);
+            insights.push(`- Consider how "${toConcept}" might reframe "${fromConcept}".`);
         }
         else {
-            insights.push(`  • This is a bisociative leap - connecting distant matrices!`);
-            insights.push(`  • The surprise value is high: "${toConcept}" disrupts conventional`);
-            insights.push(`    thinking about "${fromConcept}".`);
-            insights.push(`  • Use this collision to generate novel hypotheses or approaches.`);
+            insights.push(`- This is a bisociative leap - connecting distant matrices!`);
+            insights.push(`- The surprise value is high: "${toConcept}" disrupts conventional`);
+            insights.push(`  thinking about "${fromConcept}".`);
+            insights.push(`- Use this collision to generate novel hypotheses or approaches.`);
         }
         // Add path-specific insight
         if (path.length > 3) {
             const middle = path[Math.floor(path.length / 2)];
-            insights.push(`  • The pivot through "${middle}" suggests an intermediary concept`);
-            insights.push(`    that might bridge the two domains.`);
+            insights.push(`- The pivot through "${middle}" suggests an intermediary concept`);
+            insights.push(`  that might bridge the two domains.`);
         }
         return insights.join("\n");
     }
