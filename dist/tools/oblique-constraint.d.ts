@@ -8,10 +8,10 @@
  * V2.0: Added context-aware constraint selection that analyzes the block
  * description to pick relevant constraints and generate specific application hints.
  */
-import { DreamGraph } from '../graph.js';
+import { DreamGraph } from "../graph.js";
 export interface ObliqueConstraintInput {
     currentBlock: string;
-    constraintType?: 'oblique' | 'scamper' | 'creative' | 'random';
+    constraintType?: "oblique" | "scamper" | "creative" | "random";
 }
 export interface ObliqueConstraintOutput {
     constraint: string;

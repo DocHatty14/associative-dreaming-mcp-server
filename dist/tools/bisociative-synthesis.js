@@ -881,51 +881,12 @@ export class BisociativeSynthesisTool {
      * Creates a rich, actionable explanation
      */
     createRichExplanation(domainA, domainB, pattern, mapping, bridgeConcept) {
-        // Get actual examples from the pattern
-        const exampleKeys = Object.keys(pattern.examples);
-        const relevantExample = (exampleKeys.length > 0
-            ? pattern.examples[exampleKeys[0]]
-            : null) || "various manifestations";
-        // Find the domain object for richer context
-        const domainBObj = DOMAINS.find((d) => d.name.toLowerCase() === domainB.toLowerCase());
-        const domainBConcepts = domainBObj
-            ? domainBObj.concepts.slice(0, 4).join(", ")
-            : domainB;
-        const mappingEntries = Object.entries(mapping).map(([key, value]) => `- ${key} -> ${value}`);
-        const lines = [
-            `=== Bisociative Synthesis: ${pattern.name.toUpperCase()} ===`,
-            "",
-            `Bridge concept: "${bridgeConcept}"`,
-            "",
-            "Structural pattern:",
-            `- Pattern: ${pattern.name}`,
-            `- Description: ${pattern.description}`,
-            `- Example: ${relevantExample}`,
-            "",
-            "Conceptual mapping:",
-            `Translating from ${domainA} to ${domainB}:`,
-            ...mappingEntries,
-            "",
-            "Why this connection matters:",
-            `- The ${pattern.name} pattern provides a lens for examining ${domainA}.`,
-            `- Mapping onto ${domainB} (which involves ${domainBConcepts}) helps reveal hidden structure in ${domainA}.`,
-            `- ${domainB} has proven principles for ${pattern.name} that can carry over to ${domainA}.`,
-            `- The conceptual distance creates creative tension, forcing fresh perspectives on ${domainA} challenges.`,
-            "",
-            "Actionable insights:",
-            `- If ${domainA} operated like ${domainB}, what would change?`,
-            `- Which ${domainB} principles could directly transfer to ${domainA}?`,
-            `- What ${domainB} failure modes should ${domainA} avoid?`,
-            `- How might ${domainB} practitioners approach your ${domainA} challenge?`,
-            "",
-            "Try this exercise:",
-            `Take a specific ${domainA} problem you're facing. Reframe it in ${domainB} terms using the mapping above.`,
-            `What solutions emerge from this ${domainB} perspective? Which could translate back to ${domainA}?`,
-            "",
-            "Bridge:",
-            `"${bridgeConcept}" is a functional framework for viewing ${domainA} through the structural wisdom of ${domainB}.`,
-        ];
-        return lines.join("\n");
+        let output = `${domainA.toUpperCase()} × ${domainB.toUpperCase()}\n\n`;
+        const mappingEntries = Object.entries(mapping);
+        for (const [key, value] of mappingEntries) {
+            output += `${key}\n  ⟷\n${value}\n\n`;
+        }
+        return output.trim();
     }
     /**
      * Updates the dream graph

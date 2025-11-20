@@ -677,7 +677,7 @@ const WEIGHTED_ASSOCIATIONS = {
     ...BASE_ASSOCIATIONS,
     ...MEDICAL_ASSOCIATIONS,
     ...BUSINESS_ASSOCIATIONS,
-    ...TECHNICAL_ASSOCIATIONS
+    ...TECHNICAL_ASSOCIATIONS,
 };
 /**
  * Cross-domain bridges for high drift magnitude
@@ -937,7 +937,7 @@ export class SemanticDriftTool {
             // Low temp: Deterministic, tighten band
             const tightening = 0.7;
             const center = (targetMinDistance + targetMaxDistance) / 2;
-            const halfBand = (targetMaxDistance - targetMinDistance) / 2 * tightening;
+            const halfBand = ((targetMaxDistance - targetMinDistance) / 2) * tightening;
             targetMinDistance = center - halfBand;
             targetMaxDistance = center + halfBand;
         }
@@ -945,7 +945,7 @@ export class SemanticDriftTool {
             // High temp: Widen band for exploration
             const widening = 1.4;
             const center = (targetMinDistance + targetMaxDistance) / 2;
-            const halfBand = (targetMaxDistance - targetMinDistance) / 2 * widening;
+            const halfBand = ((targetMaxDistance - targetMinDistance) / 2) * widening;
             targetMinDistance = Math.max(0, center - halfBand);
             targetMaxDistance = Math.min(1.0, center + halfBand);
         }
@@ -1088,57 +1088,8 @@ export class SemanticDriftTool {
      * Generates rich explanation with proper formatting
      */
     generateRichExplanation(anchorConcept, finalConcept, driftPath, requestedMagnitude, actualDistance, explanationSteps, accuracyPercentage) {
-        let driftCharacter = "";
-        if (requestedMagnitude < 0.3) {
-            driftCharacter =
-                "Conservative drift - staying close to familiar territory";
-        }
-        else if (requestedMagnitude < 0.6) {
-            driftCharacter =
-                "Moderate exploration - balancing familiarity with novelty";
-        }
-        else {
-            driftCharacter =
-                "Adventurous journey - seeking distant conceptual spaces";
-        }
-        const pathDescription = driftPath.length === 2
-            ? "a direct connection"
-            : `a ${driftPath.length - 1}-step journey`;
-        // V3.0: Accuracy indicator
-        const accuracyIndicator = accuracyPercentage >= 85 ? "Excellent" :
-            accuracyPercentage >= 70 ? "Good" :
-                accuracyPercentage >= 50 ? "Fair" : "Needs adjustment";
-        const explanationLines = [
-            "=== Semantic Drift Analysis v3.0 ===",
-            "",
-            ...explanationSteps,
-            "",
-            "Drift characteristics:",
-            `- Strategy: ${driftCharacter}`,
-            `- Requested magnitude: ${(requestedMagnitude * 100).toFixed(0)}%`,
-            `- Actual distance traveled: ${(actualDistance * 100).toFixed(0)}%`,
-            `- Drift accuracy: ${accuracyPercentage.toFixed(0)}% (${accuracyIndicator})`,
-            `- Path length: ${pathDescription}`,
-            `- Full path: ${driftPath.join(" -> ")}`,
-            "",
-            "Why this drift matters:",
-            `Starting from "${anchorConcept}", this semantic drift has brought`,
-            `us to "${finalConcept}" - a concept that is ${actualDistance < 0.3
-                ? "closely related and offers a complementary angle"
-                : actualDistance < 0.6
-                    ? "semantically adjacent yet distinct enough to spark new thinking"
-                    : "surprisingly distant yet connected through creative conceptual bridges"}.`,
-            "",
-            "Potential insights:",
-            this.generateInsights(anchorConcept, finalConcept, actualDistance, driftPath),
-            "",
-            "Creative prompt:",
-            `Consider how the principles, patterns, or properties of "${finalConcept}" could illuminate new aspects of "${anchorConcept}".`,
-            `What if you treated "${anchorConcept}" as if it were "${finalConcept}"?`,
-            "",
-            "Drift complete. Use this connection to break assumptions.",
-        ];
-        return explanationLines.join("\n");
+        const path = driftPath.join("\n  ↓\n");
+        return `${path}\n\n→ What if "${anchorConcept}" is actually "${finalConcept}"?`;
     }
     /**
      * Generates contextual insights about the drift

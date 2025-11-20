@@ -20,11 +20,11 @@
  * - Context-aware concept discovery with semantic relevance calculation
  * - Rich, formatted explanations for each discovery type
  */
-import { DreamGraph } from '../graph.js';
+import { DreamGraph } from "../graph.js";
 export interface SerendipityScanInput {
     currentContext: string;
     noveltyThreshold?: number;
-    scanType?: 'bridge' | 'gap' | 'pattern' | 'random';
+    scanType?: "bridge" | "gap" | "pattern" | "random";
     recentHistoryWindow?: number;
 }
 export interface SerendipityScanOutput {
@@ -86,6 +86,7 @@ export declare class SerendipityScanTool {
      * Get concepts from cluster IDs
      */
     private getConceptsFromClusters;
+    private formatDiscovery;
     private explainBridgeDiscovery;
     private explainGapDiscovery;
     private explainPatternDiscovery;
