@@ -1,14 +1,27 @@
 /**
- * Serendipity Scan - The Unknown Unknown Finder
+ * Serendipity Scan - The Unknown Unknown Finder (V4.0 - ECHO CHAMBER FIX)
  *
  * This tool automates the search for "Unknown Unknowns" - connections and insights
  * that would normally be missed through linear thinking. It analyzes the dream graph
- * for structural holes and disconnected clusters, then identifies potential bridges
- * that could connect these disparate ideas.
+ * using sophisticated graph algorithms to identify structural holes, disconnected clusters,
+ * and potential bridges that could connect these disparate ideas.
+ *
+ * V4.0 CRITICAL FIX - THE ECHO CHAMBER BUG:
+ * - Filters out recently visited concepts from traversal history
+ * - Implements temporal diversity scoring with configurable recency window
+ * - Adds aging mechanism - older concepts gradually become eligible again
+ * - Graceful fallback when all concepts are recent
+ * - Ensures TRUE serendipity instead of echoing recent history
+ *
+ * V3.0 ENHANCEMENTS:
+ * - TRUE cluster detection using DFS-based community finding
+ * - Betweenness centrality for identifying bridge nodes
+ * - Meaningful serendipity scoring based on novelty, relevance, and centrality
+ * - Context-aware concept discovery with semantic relevance calculation
+ * - Rich, formatted explanations for each discovery type
  */
-import { EdgeType } from '../graph.js';
 /**
- * The Serendipity Scan tool
+ * The Serendipity Scan tool (V3.0 - REWRITTEN)
  * Identifies surprising connections and bridges between disconnected concepts
  */
 export class SerendipityScanTool {
@@ -17,307 +30,450 @@ export class SerendipityScanTool {
         this.dreamGraph = dreamGraph;
     }
     performScan(input) {
-        const { currentContext, noveltyThreshold = 0.7, scanType = 'bridge' } = input;
-        // Validate input
-        if (noveltyThreshold < 0 || noveltyThreshold > 1) {
-            throw new Error('Novelty threshold must be between 0.0 and 1.0');
-        }
-        // Get the current state of the dream graph
-        const allNodes = this.dreamGraph.getAllNodes();
-        // If the graph is too small, we need to generate a fallback
-        if (allNodes.length < 3) {
-            return this.generateFallbackResult(currentContext, noveltyThreshold, scanType);
-        }
-        // Find potential bridges or gaps based on scan type
-        let discoveredNode;
-        let relatedNodes = [];
-        let explanation = '';
+        const { currentContext, noveltyThreshold = 0.5, scanType = 'random', recentHistoryWindow = 10 } = input;
+        // Get recent concepts to exclude (THE ECHO CHAMBER FIX)
+        const recentNodeIds = this.getRecentNodeIds(recentHistoryWindow);
+        let result;
         switch (scanType) {
             case 'bridge':
-                // Find nodes that can bridge disconnected clusters
-                const potentialBridges = this.dreamGraph.findStructuralHoles();
-                if (potentialBridges.length > 0) {
-                    // Select a bridge based on novelty threshold
-                    // Higher novelty = more random selection
-                    const randomIndex = Math.floor(potentialBridges.length * noveltyThreshold);
-                    discoveredNode = potentialBridges[Math.min(randomIndex, potentialBridges.length - 1)];
-                    // Find related nodes (connected through incoming edges)
-                    relatedNodes = this.findRelatedNodes(discoveredNode.id);
-                    explanation = `I've identified "${discoveredNode.content}" as a potential bridge concept. This concept has connections to multiple clusters in your thinking but hasn't been fully explored yet. By developing this bridge, you may discover new pathways between seemingly unrelated ideas.`;
-                }
+                result = this.findBridgeConcept(currentContext, noveltyThreshold, recentNodeIds);
                 break;
             case 'gap':
-                // Find isolated nodes or concepts with few connections
-                const isolatedNodes = allNodes.filter(node => {
-                    const incomingEdges = this.dreamGraph.getEdgesTo(node.id);
-                    const outgoingEdges = this.dreamGraph.getEdgesFrom(node.id);
-                    return (incomingEdges.length + outgoingEdges.length) <= 1;
-                });
-                if (isolatedNodes.length > 0) {
-                    // Select an isolated node based on novelty threshold
-                    const randomIndex = Math.floor(isolatedNodes.length * noveltyThreshold);
-                    discoveredNode = isolatedNodes[Math.min(randomIndex, isolatedNodes.length - 1)];
-                    // Find all other nodes to identify potential connections
-                    relatedNodes = allNodes.filter(n => n.id !== discoveredNode.id)
-                        .slice(0, 3); // Limit to a few examples
-                    explanation = `I've identified "${discoveredNode.content}" as an isolated concept in your thinking. This idea has been mentioned but not connected to your other thoughts. Consider how this concept might relate to other ideas you're exploring.`;
-                }
+                result = this.findGapConcept(currentContext, noveltyThreshold, recentNodeIds);
                 break;
             case 'pattern':
-                // Find recurring patterns/themes across the graph
-                // This is simplified - in a full implementation would use more sophisticated pattern recognition
-                const edgeTypes = new Set();
-                this.dreamGraph.getAllEdges().forEach(edge => edgeTypes.add(edge.type));
-                // Find the most common edge type
-                let mostCommonType = EdgeType.REMINDS_OF;
-                let highestCount = 0;
-                edgeTypes.forEach(type => {
-                    const count = this.dreamGraph.getEdgesByType(type).length;
-                    if (count > highestCount) {
-                        highestCount = count;
-                        mostCommonType = type;
-                    }
-                });
-                // Find nodes connected by this type
-                const patternsNodes = allNodes.filter(node => {
-                    const outgoingEdges = this.dreamGraph.getEdgesFrom(node.id);
-                    return outgoingEdges.some(edge => edge.type === mostCommonType);
-                });
-                if (patternsNodes.length > 0) {
-                    // Select a pattern node
-                    const randomIndex = Math.floor(patternsNodes.length * noveltyThreshold);
-                    discoveredNode = patternsNodes[Math.min(randomIndex, patternsNodes.length - 1)];
-                    // Find related nodes (connected through the common edge type)
-                    const relatedEdges = this.dreamGraph.getEdgesFrom(discoveredNode.id)
-                        .filter(edge => edge.type === mostCommonType);
-                    relatedNodes = relatedEdges.map(edge => this.dreamGraph.getNode(edge.target)).filter((node) => node !== undefined);
-                    explanation = `I've identified a pattern involving "${discoveredNode.content}" in your thinking. This concept frequently connects to others through a "${mostCommonType}" relationship. This recurring pattern might reveal an underlying theme or approach that could be applied more broadly.`;
-                }
+                result = this.findPatternConcept(currentContext, noveltyThreshold, recentNodeIds);
                 break;
-            case 'random':
             default:
-                // Select a random node and find unexpected connections
-                const randomIndex = Math.floor(allNodes.length * noveltyThreshold);
-                discoveredNode = allNodes[Math.min(randomIndex, allNodes.length - 1)];
-                // Find nodes that are semantically distant but potentially related
-                relatedNodes = allNodes
-                    .filter(n => n.id !== discoveredNode.id)
-                    .sort(() => Math.random() - 0.5)
-                    .slice(0, 3);
-                explanation = `I've randomly selected "${discoveredNode.content}" to introduce an element of serendipity. Sometimes the most insightful connections come from exploring concepts that aren't obviously related to your current focus. Consider how this concept might offer a fresh perspective.`;
-                break;
+                result = this.findRandomConcept(currentContext, noveltyThreshold, recentNodeIds);
         }
-        // If we couldn't find anything in the graph, fall back to generated content
-        if (!discoveredNode) {
-            return this.generateFallbackResult(currentContext, noveltyThreshold, scanType);
-        }
-        // Calculate a "serendipity score" based on novelty and relevance
-        // High novelty + some relevance = high serendipity
-        const novelty = noveltyThreshold;
-        const relevance = 1 - (noveltyThreshold * 0.5); // Higher threshold = slightly lower relevance
-        const serendipityScore = (novelty * 0.7) + (relevance * 0.3);
-        // Update the dream graph with the serendipitous discovery
-        const relatedConceptIds = relatedNodes.map(node => node.id);
-        this.updateDreamGraph(discoveredNode, relatedConceptIds, scanType, serendipityScore);
-        return {
-            discoveredConcept: discoveredNode.content,
-            scanType,
-            serendipityScore,
-            relatedConcepts: relatedNodes.map(node => node.content),
-            explanation
-        };
+        return result;
     }
     /**
-     * Finds nodes related to a given node
+     * Gets recently visited node IDs from traversal history
+     * V4.0: Core of the echo chamber fix
      */
-    findRelatedNodes(nodeId) {
-        // Get incoming edges to this node
-        const incomingEdges = this.dreamGraph.getEdgesTo(nodeId);
-        // Get the source nodes of those edges
-        const relatedNodes = [];
-        incomingEdges.forEach(edge => {
-            const sourceNode = this.dreamGraph.getNode(edge.source);
-            if (sourceNode) {
-                relatedNodes.push(sourceNode);
-            }
-        });
-        // If we don't have enough related nodes, also check outgoing edges
-        if (relatedNodes.length < 2) {
-            const outgoingEdges = this.dreamGraph.getEdgesFrom(nodeId);
-            outgoingEdges.forEach(edge => {
-                const targetNode = this.dreamGraph.getNode(edge.target);
-                if (targetNode) {
-                    relatedNodes.push(targetNode);
-                }
-            });
-        }
-        return relatedNodes;
+    getRecentNodeIds(recentHistoryWindow) {
+        const traversalHistory = this.dreamGraph.getTraversalHistory();
+        const recentNodeIds = new Set();
+        // Get the last N nodes from traversal history
+        const recentHistory = traversalHistory.slice(-recentHistoryWindow);
+        recentHistory.forEach(nodeId => recentNodeIds.add(nodeId));
+        return recentNodeIds;
     }
     /**
-     * Updates the dream graph with the serendipitous discovery
+     * Filters nodes to exclude recently visited ones
+     * V4.0: Ensures temporal diversity
      */
-    updateDreamGraph(discoveredNode, relatedNodeIds, scanType, serendipityScore) {
-        // We'll mark this node as a serendipitous discovery by updating its metadata
-        const nodeWithUpdatedMetadata = {
-            ...discoveredNode,
-            metadata: {
-                ...discoveredNode.metadata,
-                isSerendipitousDiscovery: true,
-                scanType,
+    filterRecentNodes(nodes, recentNodeIds) {
+        return nodes.filter(node => !recentNodeIds.has(node.id));
+    }
+    /**
+     * Calculates temporal diversity score based on node age and recency
+     * V4.0: Aging mechanism - older concepts gradually become more eligible
+     */
+    calculateTemporalDiversityScore(node, recentNodeIds) {
+        // If in recent history, heavily penalize
+        if (recentNodeIds.has(node.id)) {
+            return 0.1;
+        }
+        // Calculate age-based bonus (older = more eligible)
+        const now = Date.now();
+        const age = now - node.creationTimestamp;
+        const ageInMinutes = age / (1000 * 60);
+        // Exponential decay: concepts become eligible after ~5 minutes
+        const ageFactor = Math.min(1.0, ageInMinutes / 5);
+        return 0.5 + (ageFactor * 0.5); // Score between 0.5 and 1.0
+    }
+    /**
+     * BRIDGE: Find concepts connecting different idea clusters
+     * V4.0: Now excludes recently visited concepts
+     */
+    findBridgeConcept(context, noveltyThreshold, recentNodeIds) {
+        const bridges = this.dreamGraph.findBridgeNodes();
+        if (bridges.length === 0) {
+            return this.findRandomConcept(context, noveltyThreshold, recentNodeIds);
+        }
+        // Filter out recently visited bridges
+        const freshBridges = bridges.filter(bridge => !recentNodeIds.has(bridge.nodeId));
+        // Fallback to all bridges if all are recent (with penalty)
+        const bridgesToScore = freshBridges.length > 0 ? freshBridges : bridges;
+        // Score bridges by combination of betweenness and semantic relevance
+        const scoredBridges = bridgesToScore.map(bridge => {
+            const node = this.dreamGraph.getNode(bridge.nodeId);
+            if (!node)
+                return null;
+            const relevance = this.calculateRelevance(node.content, context);
+            const novelty = 1 - relevance; // More novel = less directly relevant
+            const centrality = bridge.betweenness;
+            const temporalDiversity = this.calculateTemporalDiversityScore(node, recentNodeIds);
+            // Serendipity = balance of novelty, relevance, structural importance, and temporal diversity
+            const serendipityScore = (novelty * noveltyThreshold) +
+                (relevance * (1 - noveltyThreshold)) +
+                (centrality * 0.2) +
+                (temporalDiversity * 0.3); // Boost for non-recent concepts
+            return {
+                bridge,
+                node,
                 serendipityScore,
-                discoveryTimestamp: Date.now()
-            }
+                relevance,
+                novelty,
+                centrality
+            };
+        }).filter(x => x !== null);
+        // Pick best bridge
+        scoredBridges.sort((a, b) => b.serendipityScore - a.serendipityScore);
+        const best = scoredBridges[0];
+        // Get related concepts from connected clusters
+        const relatedConcepts = this.getConceptsFromClusters(best.bridge.connectsClusters);
+        return {
+            discoveredConcept: best.node.content,
+            scanType: 'bridge',
+            serendipityScore: best.serendipityScore,
+            relatedConcepts,
+            explanation: this.explainBridgeDiscovery(best, context)
         };
-        // In a real implementation, we would update the node in the graph
-        // Here, we just visit it to mark it as the current focus
-        this.dreamGraph.visitNode(discoveredNode.id);
-        // In a full implementation, we would also create new edges showing
-        // potential connections between this node and other relevant nodes
     }
     /**
-     * Generates a fallback result when the graph is too small
+     * GAP: Find missing connections between related concepts
+     * V4.0: Now excludes recently visited concepts
      */
-    generateFallbackResult(currentContext, noveltyThreshold, scanType) {
-        // Generate a serendipitous concept based on the current context
-        let discoveredConcept = "";
-        let explanation = "";
-        let relatedConcepts = [];
-        // Extract key terms from the current context
-        const contextWords = currentContext.toLowerCase()
-            .replace(/[^\w\s]/g, '')
-            .split(/\s+/)
-            .filter(word => word.length > 3);
-        // Select a key word if possible
-        let keyWord = "concept";
-        if (contextWords.length > 0) {
-            keyWord = contextWords[Math.floor(Math.random() * contextWords.length)];
+    findGapConcept(context, noveltyThreshold, recentNodeIds) {
+        const gaps = this.dreamGraph.findStructuralGaps();
+        if (gaps.length === 0) {
+            return this.findRandomConcept(context, noveltyThreshold, recentNodeIds);
         }
-        // Create a serendipitous concept based on scan type
-        switch (scanType) {
-            case 'bridge':
-                discoveredConcept = `Unexpected connection between ${keyWord} and ${this.getOppositeWord(keyWord)}`;
-                relatedConcepts = [keyWord, this.getOppositeWord(keyWord), "synthesis", "connection"];
-                explanation = `I've identified a potential bridge between the concept of "${keyWord}" and its seeming opposite. Though these ideas appear unrelated, there may be a hidden connection that could lead to novel insights.`;
-                break;
-            case 'gap':
-                discoveredConcept = `Unexplored aspect of ${keyWord}: ${this.getRelatedWord(keyWord)}`;
-                relatedConcepts = [keyWord, this.getRelatedWord(keyWord), "depth", "nuance"];
-                explanation = `I've identified an unexplored aspect of "${keyWord}" that hasn't been considered yet. This dimension adds complexity and nuance to your understanding of the concept.`;
-                break;
-            case 'pattern':
-                discoveredConcept = `Recurring pattern: ${this.getAbstractWord(keyWord)}`;
-                relatedConcepts = [keyWord, this.getAbstractWord(keyWord), "recurrence", "theme"];
-                explanation = `I've identified an abstract pattern that seems to recur in your thinking about "${keyWord}". This underlying theme might connect to other areas in ways you haven't considered.`;
-                break;
-            case 'random':
-            default:
-                discoveredConcept = `Random association: ${keyWord} → ${this.getRandomWord()}`;
-                relatedConcepts = [keyWord, this.getRandomWord(), "possibility", "chance"];
-                explanation = `I've made a random association to introduce serendipity into your thinking about "${keyWord}". Sometimes the most creative insights come from unexpected connections.`;
-                break;
+        // Filter out gaps involving recently visited concepts
+        const freshGaps = gaps.filter(gap => {
+            const node1 = this.dreamGraph.getAllNodes().find(n => n.content === gap.concept1);
+            const node2 = this.dreamGraph.getAllNodes().find(n => n.content === gap.concept2);
+            if (!node1 || !node2)
+                return true; // Keep if we can't find the node
+            return !recentNodeIds.has(node1.id) && !recentNodeIds.has(node2.id);
+        });
+        // Fallback to all gaps if all are recent
+        const gapsToScore = freshGaps.length > 0 ? freshGaps : gaps;
+        // Score gaps by relevance to context
+        const scoredGaps = gapsToScore.map(gap => {
+            const relevance1 = this.calculateRelevance(gap.concept1, context);
+            const relevance2 = this.calculateRelevance(gap.concept2, context);
+            const avgRelevance = (relevance1 + relevance2) / 2;
+            const novelty = 1 - avgRelevance;
+            const serendipityScore = (novelty * noveltyThreshold) +
+                (avgRelevance * (1 - noveltyThreshold)) +
+                0.3; // Bonus for being a gap
+            return { gap, serendipityScore, avgRelevance };
+        });
+        scoredGaps.sort((a, b) => b.serendipityScore - a.serendipityScore);
+        const best = scoredGaps[0];
+        return {
+            discoveredConcept: `${best.gap.concept1} ↔ ${best.gap.concept2}`,
+            scanType: 'gap',
+            serendipityScore: best.serendipityScore,
+            relatedConcepts: [best.gap.concept1, best.gap.concept2],
+            explanation: this.explainGapDiscovery(best, context)
+        };
+    }
+    /**
+     * PATTERN: Find recurring structural patterns in the graph
+     * V4.0: Now excludes recently visited concepts from exemplars
+     */
+    findPatternConcept(context, noveltyThreshold, recentNodeIds) {
+        // Look for patterns in edge types
+        const edgeTypes = this.dreamGraph.getAllEdges().map(e => e.type);
+        const typeFrequency = new Map();
+        edgeTypes.forEach(type => {
+            typeFrequency.set(type, (typeFrequency.get(type) || 0) + 1);
+        });
+        // Find most common pattern
+        const sortedTypes = Array.from(typeFrequency.entries())
+            .sort((a, b) => b[1] - a[1]);
+        const dominantPattern = sortedTypes[0];
+        // Find nodes exemplifying this pattern
+        const edges = this.dreamGraph.getAllEdges().filter(e => e.type === dominantPattern[0]);
+        const exemplarNodes = new Set();
+        edges.slice(0, 5).forEach(e => {
+            exemplarNodes.add(e.source);
+            exemplarNodes.add(e.target);
+        });
+        // Filter out recent exemplar nodes
+        const freshExemplarNodes = Array.from(exemplarNodes).filter(id => !recentNodeIds.has(id));
+        const nodesToUse = freshExemplarNodes.length > 0 ? freshExemplarNodes : Array.from(exemplarNodes);
+        const relatedConcepts = nodesToUse
+            .map(id => this.dreamGraph.getNode(id)?.content)
+            .filter(c => c !== undefined);
+        return {
+            discoveredConcept: `Pattern: ${dominantPattern[0]} (${dominantPattern[1]} occurrences)`,
+            scanType: 'pattern',
+            serendipityScore: 0.6 + (Math.random() * 0.2),
+            relatedConcepts,
+            explanation: this.explainPatternDiscovery(dominantPattern, relatedConcepts, context)
+        };
+    }
+    /**
+     * RANDOM: High-diversity random concept
+     * V4.0: THE CRITICAL FIX - Now excludes recently visited concepts
+     */
+    findRandomConcept(context, noveltyThreshold, recentNodeIds) {
+        const allNodes = this.dreamGraph.getAllNodes();
+        if (allNodes.length === 0) {
+            return {
+                discoveredConcept: 'No concepts in graph yet',
+                scanType: 'random',
+                serendipityScore: 0,
+                relatedConcepts: [],
+                explanation: '🌱 The dream graph is empty.\n\nUse other tools first to populate it:\n- semantic_drift to explore concept space\n- bisociative_synthesis to merge domains\n- oblique_constraint to add creative constraints'
+            };
         }
-        // Calculate serendipity score
-        const novelty = noveltyThreshold;
-        const relevance = 1 - (noveltyThreshold * 0.5);
-        const serendipityScore = (novelty * 0.7) + (relevance * 0.3);
-        // Create a node for this in the dream graph
-        const nodeId = `discovery-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
-        try {
-            this.dreamGraph.addNode({
-                id: nodeId,
-                content: discoveredConcept,
-                creationTimestamp: Date.now(),
-                source: 'serendipity_scan',
-                metadata: {
-                    isSerendipitousDiscovery: true,
-                    scanType,
-                    serendipityScore,
-                    isGenerated: true
-                }
-            });
-            // Visit this node
-            this.dreamGraph.visitNode(nodeId);
-        }
-        catch (error) {
-            console.error('Error adding node to graph:', error);
+        // Filter out recently visited nodes (THE ECHO CHAMBER FIX)
+        const freshNodes = this.filterRecentNodes(allNodes, recentNodeIds);
+        // Graceful fallback: If all nodes are recent, use all with temporal penalty
+        const nodesToConsider = freshNodes.length > 0 ? freshNodes : allNodes;
+        const usingFallback = freshNodes.length === 0;
+        // Score all nodes by novelty (distance from context) + temporal diversity
+        const scoredNodes = nodesToConsider.map(node => {
+            const novelty = 1 - this.calculateRelevance(node.content, context);
+            const temporalDiversity = this.calculateTemporalDiversityScore(node, recentNodeIds);
+            // Weight novelty higher, but boost non-recent concepts significantly
+            const serendipityScore = (novelty * 0.6) + (temporalDiversity * 0.4);
+            return {
+                node,
+                novelty,
+                temporalDiversity,
+                serendipityScore
+            };
+        });
+        // Sort by serendipity score (novelty + temporal diversity)
+        scoredNodes.sort((a, b) => b.serendipityScore - a.serendipityScore);
+        // Pick from top candidates (not just top 5, scale with novelty threshold)
+        const candidatePoolSize = Math.max(3, Math.floor(nodesToConsider.length * 0.3));
+        const topCandidates = scoredNodes.slice(0, candidatePoolSize);
+        // Weighted random selection from top candidates
+        const totalScore = topCandidates.reduce((sum, n) => sum + n.serendipityScore, 0);
+        let random = Math.random() * totalScore;
+        let selected = topCandidates[0];
+        for (const candidate of topCandidates) {
+            random -= candidate.serendipityScore;
+            if (random <= 0) {
+                selected = candidate;
+                break;
+            }
         }
         return {
-            discoveredConcept,
-            scanType,
-            serendipityScore,
-            relatedConcepts,
-            explanation
+            discoveredConcept: selected.node.content,
+            scanType: 'random',
+            serendipityScore: selected.serendipityScore,
+            relatedConcepts: [],
+            explanation: this.explainRandomDiscovery(selected.node, context, usingFallback, freshNodes.length, allNodes.length)
         };
     }
     /**
-     * Gets a word that is conceptually opposite to the input
+     * Calculate semantic relevance (simplified - uses keyword matching)
+     * In production, could use embeddings or better NLP
      */
-    getOppositeWord(word) {
-        const opposites = {
-            "problem": "solution",
-            "challenge": "opportunity",
-            "complexity": "simplicity",
-            "chaos": "order",
-            "logic": "intuition",
-            "analysis": "synthesis",
-            "detail": "big picture",
-            "concrete": "abstract",
-            "digital": "analog",
-            "technical": "creative",
-            "rigid": "flexible",
-            "focused": "diffuse"
-        };
-        return opposites[word.toLowerCase()] || "complementary concept";
+    calculateRelevance(concept, context) {
+        const conceptWords = concept.toLowerCase().split(/\s+/);
+        const contextWords = context.toLowerCase().split(/\s+/);
+        let matches = 0;
+        for (const word of conceptWords) {
+            if (contextWords.some(cw => cw.includes(word) || word.includes(cw))) {
+                matches++;
+            }
+        }
+        return matches / Math.max(conceptWords.length, contextWords.length);
     }
     /**
-     * Gets a word that is related to but different from the input
+     * Get concepts from cluster IDs
      */
-    getRelatedWord(word) {
-        const related = {
-            "problem": "root cause",
-            "challenge": "resistance",
-            "complexity": "emergence",
-            "chaos": "dynamism",
-            "logic": "rationality",
-            "analysis": "decomposition",
-            "detail": "minutiae",
-            "concrete": "tangible",
-            "digital": "computational",
-            "technical": "methodological",
-            "rigid": "structured",
-            "focused": "attentional"
-        };
-        return related[word.toLowerCase()] || "related dimension";
+    getConceptsFromClusters(clusterIds) {
+        const clusters = this.dreamGraph.detectClusters();
+        const concepts = [];
+        for (const clusterId of clusterIds) {
+            const cluster = clusters.get(clusterId);
+            if (cluster) {
+                for (const nodeId of Array.from(cluster).slice(0, 3)) {
+                    const node = this.dreamGraph.getNode(nodeId);
+                    if (node)
+                        concepts.push(node.content);
+                }
+            }
+        }
+        return concepts;
     }
-    /**
-     * Gets a more abstract/general word related to the input
-     */
-    getAbstractWord(word) {
-        const abstractions = {
-            "problem": "tension",
-            "challenge": "constraint",
-            "complexity": "intricacy",
-            "chaos": "unpredictability",
-            "logic": "reasoning",
-            "analysis": "examination",
-            "detail": "specificity",
-            "concrete": "manifestation",
-            "digital": "discretization",
-            "technical": "expertise",
-            "rigid": "inflexibility",
-            "focused": "concentration"
-        };
-        return abstractions[word.toLowerCase()] || "meta-pattern";
+    // Explanation generators
+    explainBridgeDiscovery(best, context) {
+        return `
+╔═══════════════════════════════════════════════════════════╗
+║            ✨ SERENDIPITY SCAN: BRIDGE                    ║
+╚═══════════════════════════════════════════════════════════╝
+
+🌉 BRIDGE CONCEPT DISCOVERED:
+"${best.node.content}"
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+📊 DISCOVERY METRICS:
+  • Serendipity Score: ${(best.serendipityScore * 100).toFixed(0)}%
+  • Novelty: ${(best.novelty * 100).toFixed(0)}%
+  • Relevance to context: ${(best.relevance * 100).toFixed(0)}%
+  • Graph centrality: ${(best.centrality * 100).toFixed(0)}%
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+🔗 WHY THIS IS A BRIDGE:
+
+This concept connects ${best.bridge.connectsClusters.length} different clusters in
+your ideation space. It serves as a conceptual bridge between:
+
+${best.bridge.connectsClusters.map((c) => `  • ${c}`).join('\n')}
+
+Bridges are valuable because they:
+1. Unite disparate ideas into coherent frameworks
+2. Reveal hidden connections between separate domains
+3. Enable knowledge transfer across boundaries
+4. Create opportunities for innovation at intersections
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+💡 HOW TO USE THIS BRIDGE:
+
+Context: "${context}"
+
+Ask yourself:
+- How does "${best.node.content}" connect the different aspects
+  of this problem?
+- What would happen if you made this bridge MORE explicit in
+  your solution?
+- Are there other concepts that could serve as bridges here?
+
+╔═══════════════════════════════════════════════════════════╗
+║  Bridge identified. Use it to unify fragmented thinking.  ║
+╚═══════════════════════════════════════════════════════════╝
+`;
     }
-    /**
-     * Gets a random word for serendipitous connections
-     */
-    getRandomWord() {
-        const randomWords = [
-            "butterfly", "quantum", "shadow", "echo", "paradox",
-            "horizon", "nebula", "catalyst", "mosaic", "labyrinth",
-            "fractal", "osmosis", "resonance", "entropy", "synergy"
-        ];
-        return randomWords[Math.floor(Math.random() * randomWords.length)];
+    explainGapDiscovery(best, context) {
+        return `
+╔═══════════════════════════════════════════════════════════╗
+║            ✨ SERENDIPITY SCAN: GAP                       ║
+╚═══════════════════════════════════════════════════════════╝
+
+🔍 STRUCTURAL GAP DISCOVERED:
+"${best.gap.concept1}" ←→ "${best.gap.concept2}"
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+📊 DISCOVERY METRICS:
+  • Serendipity Score: ${(best.serendipityScore * 100).toFixed(0)}%
+  • Gap reason: ${best.gap.reason}
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+🕳️  WHY THIS GAP MATTERS:
+
+These two concepts are related (${best.gap.reason}) but haven't been
+explicitly connected in your ideation yet. This suggests a missing
+link that could unlock new insights.
+
+Gaps often indicate:
+1. Unexplored connections worth investigating
+2. Implicit assumptions that need questioning
+3. Opportunities for synthesis
+4. Missing steps in your reasoning chain
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+💡 BRIDGING THE GAP:
+
+Context: "${context}"
+
+Experiment:
+- What happens when you explicitly connect these concepts?
+- Is there a third concept that bridges them naturally?
+- What would a hybrid of both look like?
+- Why haven't you connected them yet - what assumption prevented it?
+
+╔═══════════════════════════════════════════════════════════╗
+║    Gap identified. Explore this missing connection.       ║
+╚═══════════════════════════════════════════════════════════╝
+`;
+    }
+    explainPatternDiscovery(pattern, concepts, context) {
+        return `
+╔═══════════════════════════════════════════════════════════╗
+║            ✨ SERENDIPITY SCAN: PATTERN                   ║
+╚═══════════════════════════════════════════════════════════╝
+
+🔄 RECURRING PATTERN DETECTED:
+"${pattern[0]}" (appears ${pattern[1]} times)
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+📊 PATTERN MANIFESTATIONS:
+${concepts.slice(0, 5).map(c => `  • ${c}`).join('\n')}
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+🌀 WHY PATTERNS MATTER:
+
+This recurring relationship type reveals how your thinking naturally
+structures ideas. Patterns can be:
+1. Productive (driving you toward solutions)
+2. Limiting (keeping you in familiar territory)
+3. Revealing (showing implicit assumptions)
+
+Context: "${context}"
+
+Reflect:
+- Is this pattern helping or hindering progress on your context?
+- What would happen if you inverted this pattern?
+- Are there alternative patterns you haven't explored?
+
+╔═══════════════════════════════════════════════════════════╗
+║   Pattern discovered. Examine if it serves you.           ║
+╚═══════════════════════════════════════════════════════════╝
+`;
+    }
+    explainRandomDiscovery(node, context, usingFallback, freshCount, totalCount) {
+        const fallbackNote = usingFallback ? `
+
+⚠️  TEMPORAL DIVERSITY NOTE:
+All ${totalCount} concepts in the graph have been recently visited.
+Selected from full pool with temporal diversity scoring.
+Try using other tools to expand your concept space.
+` : `
+
+✨ TEMPORAL DIVERSITY:
+Selected from ${freshCount} non-recent concepts (${totalCount} total).
+This ensures you're discovering truly novel connections, not echoing recent history.
+`;
+        return `
+╔═══════════════════════════════════════════════════════════╗
+║            ✨ SERENDIPITY SCAN: RANDOM                    ║
+╚═══════════════════════════════════════════════════════════╝
+
+🎲 RANDOM HIGH-NOVELTY CONCEPT:
+"${node.content}"
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+🌟 SERENDIPITY IN ACTION:
+
+This concept was selected for its semantic distance from your current
+context AND its temporal diversity (avoiding recently visited concepts).
+This ensures TRUE serendipity - discovering what you haven't been thinking about.
+${fallbackNote}
+
+Context: "${context}"
+
+Use this random spark to:
+- Break out of your current frame
+- Ask "what if?" questions
+- Find analogies in unexpected places
+- Challenge your assumptions
+
+╔═══════════════════════════════════════════════════════════╗
+║  Random concept surfaced. Let it surprise you.            ║
+╚═══════════════════════════════════════════════════════════╝
+`;
     }
 }

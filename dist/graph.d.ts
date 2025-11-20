@@ -89,6 +89,45 @@ export declare class DreamGraph {
      */
     findStructuralHoles(): Node[];
     /**
+     * Detects communities/clusters using simple edge-weight based clustering
+     * Returns a map of cluster IDs to sets of node IDs
+     */
+    detectClusters(): Map<string, Set<string>>;
+    /**
+     * DFS helper for cluster detection
+     * Traverses the graph following edges above a minimum weight threshold
+     */
+    private dfs;
+    /**
+     * Calculates betweenness centrality (simplified)
+     * Measures how many shortest paths pass through this node
+     * Returns a normalized value between 0 and 1
+     */
+    calculateBetweenness(nodeId: string): number;
+    /**
+     * Finds all shortest paths between two nodes (BFS)
+     * Returns an array of paths, where each path is an array of node IDs
+     */
+    private findAllShortestPaths;
+    /**
+     * Finds true bridge nodes connecting different clusters
+     * Returns nodes with their connected clusters and betweenness scores
+     */
+    findBridgeNodes(): Array<{
+        nodeId: string;
+        connectsClusters: string[];
+        betweenness: number;
+    }>;
+    /**
+     * Finds structural gaps - concepts that should be connected but aren't
+     * Returns pairs of concepts with reasons why they might be related
+     */
+    findStructuralGaps(): Array<{
+        concept1: string;
+        concept2: string;
+        reason: string;
+    }>;
+    /**
      * Calculates the semantic diversity of the graph
      * Higher values indicate more diverse concepts
      */

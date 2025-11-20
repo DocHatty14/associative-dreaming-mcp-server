@@ -1,8 +1,17 @@
 /**
- * Semantic Drift - Controlled Hallucination Engine (OPTIMIZED v2.1)
+ * Semantic Drift - Controlled Hallucination Engine (CALIBRATED v3.0)
  *
  * This tool implements a stochastic random walk through the concept space,
  * seeking semantically distant yet contextually relevant concepts.
+ *
+ * V3.0 CRITICAL CALIBRATION FIX:
+ * - Empirically calibrated distance formulas to match requested drift
+ * - Corrects 100% overshoot at low drift (30% → 60%)
+ * - Corrects 24% undershoot at high drift (90% → 68%)
+ * - Adaptive hop calculation prevents distance compounding
+ * - Temperature scaling now proportional and predictable
+ * - Drift accuracy feedback in explanations
+ * - Maintains creative exploration while ensuring precision
  *
  * V2.1 OPTIMIZATIONS:
  * - Loop detection: visitedConcepts Set prevents circular paths
@@ -20,6 +29,10 @@
  * - Temperature adds genuine creative chaos
  * - Rich explanation formatting that actually appears in output
  * - Fixed synonym problem - prioritizes semantically distant concepts
+ *
+ * V2.2 ENHANCEMENTS:
+ * - Added domain-specific associations (medical, business, technical)
+ * - Expanded coverage to 600+ concepts with specialized terminology
  */
 import { DreamGraph } from "../graph.js";
 export interface SemanticDriftInput {
@@ -40,6 +53,21 @@ export interface SemanticDriftOutput {
 export declare class SemanticDriftTool {
     private dreamGraph;
     constructor(dreamGraph: DreamGraph);
+    /**
+     * V3.0: Calibrates requested drift magnitude to target actual distance
+     * Corrects for historical overshooting/undershooting
+     *
+     * Empirical observations:
+     * - Low drift (0.0-0.4): Tends to overshoot by ~50-100%
+     * - Mid drift (0.4-0.7): Fairly accurate
+     * - High drift (0.7-1.0): Tends to undershoot by ~20-30%
+     */
+    private calibrateDriftMagnitude;
+    /**
+     * V3.0: Calculates optimal number of hops for target distance
+     * Prevents compounding that leads to overshooting
+     */
+    private calculateOptimalHops;
     performDrift(input: SemanticDriftInput): SemanticDriftOutput;
     /**
      * Finds the next concept based on drift magnitude and temperature

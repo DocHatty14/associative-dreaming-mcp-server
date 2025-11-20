@@ -1,10 +1,17 @@
 /**
- * Serendipity Scan - The Unknown Unknown Finder (V3.0 - COMPLETE REWRITE)
+ * Serendipity Scan - The Unknown Unknown Finder (V4.0 - ECHO CHAMBER FIX)
  *
  * This tool automates the search for "Unknown Unknowns" - connections and insights
  * that would normally be missed through linear thinking. It analyzes the dream graph
  * using sophisticated graph algorithms to identify structural holes, disconnected clusters,
  * and potential bridges that could connect these disparate ideas.
+ *
+ * V4.0 CRITICAL FIX - THE ECHO CHAMBER BUG:
+ * - Filters out recently visited concepts from traversal history
+ * - Implements temporal diversity scoring with configurable recency window
+ * - Adds aging mechanism - older concepts gradually become eligible again
+ * - Graceful fallback when all concepts are recent
+ * - Ensures TRUE serendipity instead of echoing recent history
  *
  * V3.0 ENHANCEMENTS:
  * - TRUE cluster detection using DFS-based community finding
@@ -21,6 +28,7 @@ export interface SerendipityScanInput {
   currentContext: string; // Description of the current state/focus of exploration
   noveltyThreshold?: number; // 0.0 to 1.0, how novel vs relevant the results should be
   scanType?: 'bridge' | 'gap' | 'pattern' | 'random'; // Optional: specific type of serendipity
+  recentHistoryWindow?: number; // How many recent concepts to exclude (default: 10)
 }
 
 export interface SerendipityScanOutput {
@@ -43,51 +51,107 @@ export class SerendipityScanTool {
   }
 
   public performScan(input: SerendipityScanInput): SerendipityScanOutput {
-    const { currentContext, noveltyThreshold = 0.5, scanType = 'random' } = input;
+    const { currentContext, noveltyThreshold = 0.5, scanType = 'random', recentHistoryWindow = 10 } = input;
+    
+    // Get recent concepts to exclude (THE ECHO CHAMBER FIX)
+    const recentNodeIds = this.getRecentNodeIds(recentHistoryWindow);
     
     let result: SerendipityScanOutput;
     
     switch (scanType) {
       case 'bridge':
-        result = this.findBridgeConcept(currentContext, noveltyThreshold);
+        result = this.findBridgeConcept(currentContext, noveltyThreshold, recentNodeIds);
         break;
       case 'gap':
-        result = this.findGapConcept(currentContext, noveltyThreshold);
+        result = this.findGapConcept(currentContext, noveltyThreshold, recentNodeIds);
         break;
       case 'pattern':
-        result = this.findPatternConcept(currentContext, noveltyThreshold);
+        result = this.findPatternConcept(currentContext, noveltyThreshold, recentNodeIds);
         break;
       default:
-        result = this.findRandomConcept(currentContext, noveltyThreshold);
+        result = this.findRandomConcept(currentContext, noveltyThreshold, recentNodeIds);
     }
     
     return result;
   }
 
   /**
-   * BRIDGE: Find concepts connecting different idea clusters
+   * Gets recently visited node IDs from traversal history
+   * V4.0: Core of the echo chamber fix
    */
-  private findBridgeConcept(context: string, noveltyThreshold: number): SerendipityScanOutput {
+  private getRecentNodeIds(recentHistoryWindow: number): Set<string> {
+    const traversalHistory = this.dreamGraph.getTraversalHistory();
+    const recentNodeIds = new Set<string>();
+    
+    // Get the last N nodes from traversal history
+    const recentHistory = traversalHistory.slice(-recentHistoryWindow);
+    recentHistory.forEach(nodeId => recentNodeIds.add(nodeId));
+    
+    return recentNodeIds;
+  }
+
+  /**
+   * Filters nodes to exclude recently visited ones
+   * V4.0: Ensures temporal diversity
+   */
+  private filterRecentNodes(nodes: Node[], recentNodeIds: Set<string>): Node[] {
+    return nodes.filter(node => !recentNodeIds.has(node.id));
+  }
+
+  /**
+   * Calculates temporal diversity score based on node age and recency
+   * V4.0: Aging mechanism - older concepts gradually become more eligible
+   */
+  private calculateTemporalDiversityScore(node: Node, recentNodeIds: Set<string>): number {
+    // If in recent history, heavily penalize
+    if (recentNodeIds.has(node.id)) {
+      return 0.1;
+    }
+    
+    // Calculate age-based bonus (older = more eligible)
+    const now = Date.now();
+    const age = now - node.creationTimestamp;
+    const ageInMinutes = age / (1000 * 60);
+    
+    // Exponential decay: concepts become eligible after ~5 minutes
+    const ageFactor = Math.min(1.0, ageInMinutes / 5);
+    
+    return 0.5 + (ageFactor * 0.5); // Score between 0.5 and 1.0
+  }
+
+  /**
+   * BRIDGE: Find concepts connecting different idea clusters
+   * V4.0: Now excludes recently visited concepts
+   */
+  private findBridgeConcept(context: string, noveltyThreshold: number, recentNodeIds: Set<string>): SerendipityScanOutput {
     const bridges = this.dreamGraph.findBridgeNodes();
     
     if (bridges.length === 0) {
-      return this.findRandomConcept(context, noveltyThreshold);
+      return this.findRandomConcept(context, noveltyThreshold, recentNodeIds);
     }
     
+    // Filter out recently visited bridges
+    const freshBridges = bridges.filter(bridge => !recentNodeIds.has(bridge.nodeId));
+    
+    // Fallback to all bridges if all are recent (with penalty)
+    const bridgesToScore = freshBridges.length > 0 ? freshBridges : bridges;
+    
     // Score bridges by combination of betweenness and semantic relevance
-    const scoredBridges = bridges.map(bridge => {
+    const scoredBridges = bridgesToScore.map(bridge => {
       const node = this.dreamGraph.getNode(bridge.nodeId);
       if (!node) return null;
       
       const relevance = this.calculateRelevance(node.content, context);
       const novelty = 1 - relevance; // More novel = less directly relevant
       const centrality = bridge.betweenness;
+      const temporalDiversity = this.calculateTemporalDiversityScore(node, recentNodeIds);
       
-      // Serendipity = balance of novelty, relevance, and structural importance
+      // Serendipity = balance of novelty, relevance, structural importance, and temporal diversity
       const serendipityScore = 
         (novelty * noveltyThreshold) +
         (relevance * (1 - noveltyThreshold)) +
-        (centrality * 0.3);
+        (centrality * 0.2) +
+        (temporalDiversity * 0.3); // Boost for non-recent concepts
       
       return {
         bridge,
@@ -117,16 +181,30 @@ export class SerendipityScanTool {
 
   /**
    * GAP: Find missing connections between related concepts
+   * V4.0: Now excludes recently visited concepts
    */
-  private findGapConcept(context: string, noveltyThreshold: number): SerendipityScanOutput {
+  private findGapConcept(context: string, noveltyThreshold: number, recentNodeIds: Set<string>): SerendipityScanOutput {
     const gaps = this.dreamGraph.findStructuralGaps();
     
     if (gaps.length === 0) {
-      return this.findRandomConcept(context, noveltyThreshold);
+      return this.findRandomConcept(context, noveltyThreshold, recentNodeIds);
     }
     
+    // Filter out gaps involving recently visited concepts
+    const freshGaps = gaps.filter(gap => {
+      const node1 = this.dreamGraph.getAllNodes().find(n => n.content === gap.concept1);
+      const node2 = this.dreamGraph.getAllNodes().find(n => n.content === gap.concept2);
+      
+      if (!node1 || !node2) return true; // Keep if we can't find the node
+      
+      return !recentNodeIds.has(node1.id) && !recentNodeIds.has(node2.id);
+    });
+    
+    // Fallback to all gaps if all are recent
+    const gapsToScore = freshGaps.length > 0 ? freshGaps : gaps;
+    
     // Score gaps by relevance to context
-    const scoredGaps = gaps.map(gap => {
+    const scoredGaps = gapsToScore.map(gap => {
       const relevance1 = this.calculateRelevance(gap.concept1, context);
       const relevance2 = this.calculateRelevance(gap.concept2, context);
       const avgRelevance = (relevance1 + relevance2) / 2;
@@ -154,8 +232,9 @@ export class SerendipityScanTool {
 
   /**
    * PATTERN: Find recurring structural patterns in the graph
+   * V4.0: Now excludes recently visited concepts from exemplars
    */
-  private findPatternConcept(context: string, noveltyThreshold: number): SerendipityScanOutput {
+  private findPatternConcept(context: string, noveltyThreshold: number, recentNodeIds: Set<string>): SerendipityScanOutput {
     // Look for patterns in edge types
     const edgeTypes = this.dreamGraph.getAllEdges().map(e => e.type);
     const typeFrequency = new Map<string, number>();
@@ -178,7 +257,11 @@ export class SerendipityScanTool {
       exemplarNodes.add(e.target);
     });
     
-    const relatedConcepts = Array.from(exemplarNodes)
+    // Filter out recent exemplar nodes
+    const freshExemplarNodes = Array.from(exemplarNodes).filter(id => !recentNodeIds.has(id));
+    const nodesToUse = freshExemplarNodes.length > 0 ? freshExemplarNodes : Array.from(exemplarNodes);
+    
+    const relatedConcepts = nodesToUse
       .map(id => this.dreamGraph.getNode(id)?.content)
       .filter(c => c !== undefined) as string[];
     
@@ -193,38 +276,70 @@ export class SerendipityScanTool {
 
   /**
    * RANDOM: High-diversity random concept
+   * V4.0: THE CRITICAL FIX - Now excludes recently visited concepts
    */
-  private findRandomConcept(context: string, noveltyThreshold: number): SerendipityScanOutput {
-    const nodes = this.dreamGraph.getAllNodes();
+  private findRandomConcept(context: string, noveltyThreshold: number, recentNodeIds: Set<string>): SerendipityScanOutput {
+    const allNodes = this.dreamGraph.getAllNodes();
     
-    if (nodes.length === 0) {
+    if (allNodes.length === 0) {
       return {
         discoveredConcept: 'No concepts in graph yet',
         scanType: 'random',
         serendipityScore: 0,
         relatedConcepts: [],
-        explanation: 'The dream graph is empty. Use other tools first to populate it.'
+        explanation: '🌱 The dream graph is empty.\n\nUse other tools first to populate it:\n- semantic_drift to explore concept space\n- bisociative_synthesis to merge domains\n- oblique_constraint to add creative constraints'
       };
     }
     
-    // Score all nodes by novelty (distance from context)
-    const scoredNodes = nodes.map(node => ({
-      node,
-      novelty: 1 - this.calculateRelevance(node.content, context),
-      serendipityScore: Math.random() * 0.3 + 0.5
-    }));
+    // Filter out recently visited nodes (THE ECHO CHAMBER FIX)
+    const freshNodes = this.filterRecentNodes(allNodes, recentNodeIds);
     
-    // Pick from high-novelty nodes
-    scoredNodes.sort((a, b) => b.novelty - a.novelty);
-    const topNovel = scoredNodes.slice(0, 5);
-    const selected = topNovel[Math.floor(Math.random() * topNovel.length)];
+    // Graceful fallback: If all nodes are recent, use all with temporal penalty
+    const nodesToConsider = freshNodes.length > 0 ? freshNodes : allNodes;
+    const usingFallback = freshNodes.length === 0;
+    
+    // Score all nodes by novelty (distance from context) + temporal diversity
+    const scoredNodes = nodesToConsider.map(node => {
+      const novelty = 1 - this.calculateRelevance(node.content, context);
+      const temporalDiversity = this.calculateTemporalDiversityScore(node, recentNodeIds);
+      
+      // Weight novelty higher, but boost non-recent concepts significantly
+      const serendipityScore = (novelty * 0.6) + (temporalDiversity * 0.4);
+      
+      return {
+        node,
+        novelty,
+        temporalDiversity,
+        serendipityScore
+      };
+    });
+    
+    // Sort by serendipity score (novelty + temporal diversity)
+    scoredNodes.sort((a, b) => b.serendipityScore - a.serendipityScore);
+    
+    // Pick from top candidates (not just top 5, scale with novelty threshold)
+    const candidatePoolSize = Math.max(3, Math.floor(nodesToConsider.length * 0.3));
+    const topCandidates = scoredNodes.slice(0, candidatePoolSize);
+    
+    // Weighted random selection from top candidates
+    const totalScore = topCandidates.reduce((sum, n) => sum + n.serendipityScore, 0);
+    let random = Math.random() * totalScore;
+    
+    let selected = topCandidates[0];
+    for (const candidate of topCandidates) {
+      random -= candidate.serendipityScore;
+      if (random <= 0) {
+        selected = candidate;
+        break;
+      }
+    }
     
     return {
       discoveredConcept: selected.node.content,
       scanType: 'random',
       serendipityScore: selected.serendipityScore,
       relatedConcepts: [],
-      explanation: this.explainRandomDiscovery(selected.node, context)
+      explanation: this.explainRandomDiscovery(selected.node, context, usingFallback, freshNodes.length, allNodes.length)
     };
   }
 
@@ -402,7 +517,19 @@ Reflect:
 `;
   }
 
-  private explainRandomDiscovery(node: Node, context: string): string {
+  private explainRandomDiscovery(node: Node, context: string, usingFallback: boolean, freshCount: number, totalCount: number): string {
+    const fallbackNote = usingFallback ? `
+
+⚠️  TEMPORAL DIVERSITY NOTE:
+All ${totalCount} concepts in the graph have been recently visited.
+Selected from full pool with temporal diversity scoring.
+Try using other tools to expand your concept space.
+` : `
+
+✨ TEMPORAL DIVERSITY:
+Selected from ${freshCount} non-recent concepts (${totalCount} total).
+This ensures you're discovering truly novel connections, not echoing recent history.
+`;
     return `
 ╔═══════════════════════════════════════════════════════════╗
 ║            ✨ SERENDIPITY SCAN: RANDOM                    ║
@@ -415,9 +542,10 @@ Reflect:
 
 🌟 SERENDIPITY IN ACTION:
 
-Sometimes the best insights come from unexpected directions.
-This concept was selected for its semantic distance from your
-current context, maximizing the chance for surprising connections.
+This concept was selected for its semantic distance from your current
+context AND its temporal diversity (avoiding recently visited concepts).
+This ensures TRUE serendipity - discovering what you haven't been thinking about.
+${fallbackNote}
 
 Context: "${context}"
 
