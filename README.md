@@ -11,7 +11,7 @@
 [![npm version](https://badge.fury.io/js/@associative%2Fserver-associative-dreaming.svg)](https://www.npmjs.com/package/@associative/server-associative-dreaming)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
 
-[The Hypothesis](#-the-hypothesis) • [Quick Start](#-quick-start) • [Tools](#-the-five-engines) • [Examples](#-see-it-in-action) • [Architecture](#-architecture-v20)
+[The Hypothesis](#-the-hypothesis) • [Quick Start](#-quick-start) • [Tools](#-the-five-engines) • [Examples](#-see-it-in-action) • [How It Works](#-how-it-actually-works)
 
 </div>
 
@@ -260,49 +260,47 @@ The amplifier. Takes outputs from the other tools and forces them to **collide**
 
 ---
 
-## 🏗️ Architecture (V2.0)
+## 🏗️ How It Actually Works
 
-### The Key Insight
+### The Core Architecture
 
-**The MCP server doesn't try to be creative.** Creativity happens in the LLM. The server provides **scaffolding**—structured prompts that guide Claude's natural hyperdimensional pattern-matching toward productive lateral thinking.
+This MCP server doesn't try to be creative itself. **Creativity happens in the LLM.** The server provides **scaffolding**—structured prompts that guide Claude's natural hyperdimensional pattern-matching toward productive lateral thinking.
 
-Old approach (wrong):
 ```
-Server generates: "throughput ⟷ tension" (meaningless template)
-```
-
-New approach (V2.0):
-```
-Server generates: Structured prompt with constraints, response sections, and "because chain" requirements
-Claude generates: Actual insight with traceable reasoning
+User → Claude → MCP Server → [Generate Scaffold] → Claude → Creative Output
+                     ↓
+              [Track in Graph]
 ```
 
 ### What Each Tool Returns
 
-Every tool returns an **LLM Scaffold**:
+Every tool returns a **Creative Scaffold** with three components:
 
+1. **LLM Prompt**: Structured task with constraints and required reasoning sections
+2. **Metadata**: Tool parameters and context for reference
+3. **Graph Update**: Concepts and relationships added to the exploration map
+
+Example scaffold structure:
 ```
 ═══════════════════════════════════════════════════════════════
-  BISOCIATIVE SYNTHESIS - LLM SCAFFOLD OUTPUT  
+  SEMANTIC DRIFT - CREATIVE SCAFFOLD
 ═══════════════════════════════════════════════════════════════
 
-[Explanation of what this tool does]
+[Task description and methodology]
 
 ───────────────────────────────────────────────────────────────
-  LLM PROMPT (Process this for genuine insight)
+  YOUR TASK (Process this for genuine insight)
 ───────────────────────────────────────────────────────────────
 
-[Carefully crafted prompt with:]
-- The specific task
-- Required response sections (structural_insight, because_chain, concrete_application, etc.)
-- Constraints that ensure output is USEFUL, not just weird
-- Context grounding
+[Specific creative task with:]
+- The anchor concept and drift parameters
+- Required response sections:
+  * destination_concept: Where you landed
+  * because_chain: Step-by-step reasoning
+  * reframe: What this reveals about the original concept
+  * concrete_application: How to use this insight
 
-───────────────────────────────────────────────────────────────
-  KEY DATA
-───────────────────────────────────────────────────────────────
-
-[Structured metadata for programmatic access]
+[Constraints ensuring useful output, not just weird]
 ```
 
 ### The "Because Chain" Requirement
@@ -318,6 +316,19 @@ Weirdness in service of insight, not weirdness for performance.
 
 ---
 
+### The Concept Graph
+
+Under the hood, the server maintains a **relationship graph** that grows with each tool call:
+- **Nodes**: Concepts (anchors, destinations, bridges, discoveries)
+- **Edges**: Typed relationships (METAPHOR_FOR, CONTRASTS_WITH, SYNTHESIZED_FROM, etc.)
+- **Clusters**: Related concepts that form naturally
+- **Bridge Nodes**: Connect disparate areas of thinking
+- **Structural Holes**: Reveal unexplored territory
+
+This isn't just logging—it's a **map of your creative exploration** that can be queried and built upon across sessions.
+
+---
+
 ## 🔬 The Philosophy
 
 | What We're Told | What Actually Works |
@@ -328,17 +339,6 @@ Weirdness in service of insight, not weirdness for performance.
 | "Avoid tangents" | The tangent IS the insight |
 
 **Associative Dreaming** gives your AI permission to wander. Productively. With guardrails that ensure the wandering leads somewhere useful.
-
-### The Rhizomatic Dream Graph
-
-Under the hood, the server maintains a **concept graph** that grows with each tool call:
-- Nodes are concepts (anchors, destinations, bridges, discoveries)
-- Edges are typed relationships (METAPHOR_FOR, CONTRASTS_WITH, REMINDS_OF, SYNTHESIZED_FROM, etc.)
-- Clusters form naturally as related concepts accumulate
-- Bridge nodes connect disparate clusters
-- Structural holes reveal unexplored territory
-
-This isn't just logging—it's a **map of the creative exploration** that can be queried, visualized, and built upon.
 
 ---
 
@@ -353,18 +353,61 @@ npm install
 # Build
 npm run build
 
-# Run
+# Run locally
 npm start
 
-# Watch mode
+# Watch mode for development
 npm run build:watch
+```
+
+### Project Structure
+
+```
+src/
+├── index.ts              # MCP server entry point
+├── lib.ts                # Core server implementation
+├── config.ts             # Configuration management
+├── graph.ts              # Concept relationship graph
+├── schemas.ts            # Zod validation schemas
+├── tools/                # The five creative engines
+│   ├── semantic-drift.ts
+│   ├── bisociative-synthesis.ts
+│   ├── oblique-constraint.ts
+│   ├── serendipity-scan.ts
+│   └── meta-association.ts
+├── prompts/              # Scaffold generation
+│   └── creative-scaffolds.ts
+└── utils/                # Helper utilities
+    ├── concept.ts
+    ├── random.ts
+    └── errors.ts
 ```
 
 ### Environment Variables
 
-| Variable | Description |
-|----------|-------------|
-| `DISABLE_DREAM_LOGGING` | Set to `"true"` to suppress console output |
+| Variable | Description | Default |
+|----------|-------------|---------|
+| `DISABLE_DREAM_LOGGING` | Set to `"true"` to suppress console output | `false` |
+
+---
+
+## 📊 System Status
+
+### ✅ Current Capabilities (v1.0)
+- Creative prompt scaffolding for 5 distinct thinking modes
+- Concept relationship graph with typed edges
+- Parameter-driven exploration (drift magnitude, temperature, chaos intensity)
+- Traceable reasoning chains ("because chains")
+- Works seamlessly with Claude via MCP protocol
+
+### 🔮 Planned Enhancements
+- **v1.1**: Real NLP concept extraction (compromise, natural, stopword)
+- **v1.2**: Transparency reporting (show computational vs. creative work)
+- **v1.3**: Vector similarity engine for true semantic distance
+- **v2.0**: Concept map visualization
+- **v2.1**: Multi-turn conversation support with context accumulation
+
+See [IMPLEMENTATION_STATUS.md](IMPLEMENTATION_STATUS.md) for detailed roadmap.
 
 ---
 
@@ -381,6 +424,18 @@ npm run build:watch
 ## 📄 License
 
 MIT License - See [LICENSE](LICENSE) for details
+
+---
+
+## 🤝 Contributing
+
+Contributions welcome! This is an experiment in harnessing AI's natural creative tendencies. If you have ideas for new creative engines, better scaffolding techniques, or ways to make lateral thinking more reliable, please open an issue or PR.
+
+**Areas of Interest:**
+- New creative constraints or thinking modes
+- Better prompt scaffolding techniques
+- Graph visualization and exploration
+- Multi-agent creative collaboration patterns
 
 ---
 
