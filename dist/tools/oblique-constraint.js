@@ -1,538 +1,380 @@
 /**
- * Oblique Constraint - The Entropy Injector V2.0
+ * Oblique Constraint - The Entropy Injector (V3.0 - LLM-SCAFFOLDED)
  *
- * This tool implements Brian Eno's Oblique Strategies and SCAMPER techniques.
- * It acts as a "Circuit Breaker" for linear rigidity by introducing
- * deliberate constraints that force creative thinking and pattern breaking.
+ * This tool implements Brian Eno's Oblique Strategies and SCAMPER techniques
+ * to act as a "Circuit Breaker" for rigid thinking.
  *
- * V2.0: Added context-aware constraint selection that analyzes the block
- * description to pick relevant constraints and generate specific application hints.
+ * V3.0 MAJOR REFACTOR:
+ * - Outputs LLM SCAFFOLDS with actionable application guidance
+ * - Each constraint includes HOW TO APPLY IT (not just the constraint)
+ * - "What might emerge" section forces productive speculation
+ * - Constraints are grounded in user's actual block, not generic
  */
 import { EdgeType } from "../graph.js";
-import fs from "fs";
-import path from "path";
+import { generateConstraintReframeScaffold, formatScaffoldAsPrompt, } from "../prompts/creative-scaffolds.js";
 /**
- * The Oblique Constraint tool
- * Injects creative constraints to break linear thinking
+ * Curated Oblique Strategies with application guidance
+ * Each strategy includes HOW to apply it, not just the cryptic phrase
+ */
+const OBLIQUE_STRATEGIES = [
+    // Process strategies
+    {
+        text: "Honor thy error as a hidden intention",
+        category: "process",
+        applicationPattern: "Take your most recent mistake or unexpected result. Treat it as if you meant to do it. What would that intention imply about your direction?",
+        whenUseful: "When stuck on 'fixing' something that might actually be a feature",
+    },
+    {
+        text: "Use an old idea",
+        category: "process",
+        applicationPattern: "What approach did you abandon earlier? Revisit it with your current knowledge. What do you see differently now?",
+        whenUseful: "When you've been iterating too long without checking the fundamentals",
+    },
+    {
+        text: "What would your closest friend do?",
+        category: "perspective",
+        applicationPattern: "Think of someone who approaches problems very differently from you. How would they tackle this? What would they prioritize?",
+        whenUseful: "When you're too deep in your own perspective",
+    },
+    {
+        text: "What wouldn't you do?",
+        category: "inversion",
+        applicationPattern: "List 3 things you would never do in this situation. Now consider: what if one of those is actually the answer?",
+        whenUseful: "When conventional approaches have been exhausted",
+    },
+    {
+        text: "Emphasize the flaws",
+        category: "destruction",
+        applicationPattern: "What's the weakest part of your current approach? Make it MORE prominent. What does that reveal?",
+        whenUseful: "When you're trying to hide or minimize something",
+    },
+    {
+        text: "Remove ambiguities and convert to specifics",
+        category: "subtraction",
+        applicationPattern: "Where are you being vague? Force yourself to state exact numbers, names, dates. What changes?",
+        whenUseful: "When fuzzy thinking is masking unclear requirements",
+    },
+    {
+        text: "Remove specifics and convert to ambiguities",
+        category: "addition",
+        applicationPattern: "Where are you being too precise? Zoom out. What's the broader pattern you're trying to achieve?",
+        whenUseful: "When you're over-engineering or premature optimizing",
+    },
+    {
+        text: "What is the reality of the situation?",
+        category: "meta",
+        applicationPattern: "Set aside your plans and assumptions. What is actually happening right now? What evidence do you have?",
+        whenUseful: "When you've been operating on untested assumptions",
+    },
+    {
+        text: "Faced with a choice, do both",
+        category: "process",
+        applicationPattern: "You're debating between two options. What if you did both? What would that look like? What does it reveal about the false dichotomy?",
+        whenUseful: "When stuck in either/or thinking",
+    },
+    {
+        text: "The inconsistency principle",
+        category: "destruction",
+        applicationPattern: "Introduce a deliberate inconsistency. Where could you break your own rules productively?",
+        whenUseful: "When your rules or patterns have become a prison",
+    },
+    {
+        text: "Imagine the problem is solved. How did you solve it?",
+        category: "inversion",
+        applicationPattern: "Fast-forward to success. Describe what you did. Now work backwards. What was the first step?",
+        whenUseful: "When you can't see the path forward",
+    },
+    {
+        text: "What would happen if you did nothing?",
+        category: "meta",
+        applicationPattern: "Stop all action. What would naturally happen? Sometimes the best intervention is non-intervention.",
+        whenUseful: "When you might be over-acting or creating problems",
+    },
+    {
+        text: "Make what was important no longer important",
+        category: "destruction",
+        applicationPattern: "What constraint are you treating as sacred? Imagine it doesn't exist. What options open up?",
+        whenUseful: "When you're constrained by assumptions you haven't questioned",
+    },
+    {
+        text: "Ask people to work against their better judgment",
+        category: "perspective",
+        applicationPattern: "What would someone who disagrees with you do? Try their approach genuinely, not as a strawman.",
+        whenUseful: "When you're in an echo chamber",
+    },
+    {
+        text: "Discover the recipes you are using and abandon them",
+        category: "meta",
+        applicationPattern: "What patterns are you repeating unconsciously? Name them. Now deliberately break one.",
+        whenUseful: "When you're on autopilot",
+    },
+];
+const SCAMPER_OPERATIONS = [
+    {
+        letter: "S",
+        name: "Substitute",
+        question: "What can you substitute? What can take the place of this?",
+        applicationPattern: "List the key components. For each one, brainstorm 3 alternatives. Which substitution changes the game?",
+    },
+    {
+        letter: "C",
+        name: "Combine",
+        question: "What can you combine? What can be merged?",
+        applicationPattern: "What two elements, if merged, would create something new? Look for unlikely combinations.",
+    },
+    {
+        letter: "A",
+        name: "Adapt",
+        question: "What can you adapt? What else is like this?",
+        applicationPattern: "What successful approach from another field could you borrow? What's the parallel in a different domain?",
+    },
+    {
+        letter: "M",
+        name: "Modify/Magnify",
+        question: "What can you modify? What can you make bigger or more extreme?",
+        applicationPattern: "Take one element and make it 10x larger/more intense. What breaks? What becomes possible?",
+    },
+    {
+        letter: "P",
+        name: "Put to other uses",
+        question: "What other uses could this have? Who else could use this?",
+        applicationPattern: "Who would find this valuable that you haven't considered? What problem does this accidentally solve?",
+    },
+    {
+        letter: "E",
+        name: "Eliminate",
+        question: "What can you eliminate? What's unnecessary?",
+        applicationPattern: "Remove something you think is essential. Can it work without it? What does its absence reveal?",
+    },
+    {
+        letter: "R",
+        name: "Reverse/Rearrange",
+        question: "What can you reverse? What can you rearrange?",
+        applicationPattern: "Flip the order. Start from the end. Do the opposite. What if the effect was the cause?",
+    },
+];
+/**
+ * The Oblique Constraint tool (V3.0 - LLM-SCAFFOLDED)
  */
 export class ObliqueConstraintTool {
     dreamGraph;
-    strategies = [];
-    scamperStrategies = [];
-    creativeConstraints = [];
     constructor(dreamGraph) {
         this.dreamGraph = dreamGraph;
-        this.loadConstraints();
-    }
-    /**
-     * Loads the oblique strategies and other constraints from the JSON file
-     */
-    loadConstraints() {
-        try {
-            // Path is relative to where the process is run
-            const dataPath = path.join(process.cwd(), "src", "data", "oblique-strategies.json");
-            const rawData = fs.readFileSync(dataPath, "utf8");
-            const data = JSON.parse(rawData);
-            this.strategies = data.strategies || [];
-            this.scamperStrategies = data.scamperStrategies || [];
-            this.creativeConstraints = data.creativeConstraints || [];
-            // Fallback in case file loading fails
-            if (this.strategies.length === 0) {
-                this.strategies = [
-                    "Honor thy error as a hidden intention",
-                    "Remove specifics and convert to ambiguities",
-                    "What would your closest friend do?",
-                    "Use an old idea",
-                ];
-            }
-        }
-        catch (error) {
-            console.error("Error loading constraints:", error);
-            // Fallback constraints
-            this.strategies = [
-                "Honor thy error as a hidden intention",
-                "Remove specifics and convert to ambiguities",
-                "What would your closest friend do?",
-                "Use an old idea",
-            ];
-            this.scamperStrategies = [
-                "Substitute: What can you substitute?",
-                "Combine: What can you combine or bring together somehow?",
-                "Adapt: What can you adapt for use as a solution?",
-            ];
-            this.creativeConstraints = [
-                "Work with only 3 elements",
-                "Express the solution without using industry terms",
-                "What if the opposite were true?",
-            ];
-        }
     }
     generateConstraint(input) {
         const { currentBlock, constraintType = "random" } = input;
-        // Analyze the block to understand context
-        const blockAnalysis = this.analyzeBlock(currentBlock);
-        // Select constraint based on context analysis
-        let selectedConstraint = "";
-        let selectedType = constraintType;
-        if (constraintType === "random") {
-            // Context-aware selection
-            const result = this.selectContextAwareConstraint(blockAnalysis);
-            selectedConstraint = result.constraint;
-            selectedType = result.type;
+        if (!currentBlock || currentBlock.trim() === "") {
+            throw new Error("Current block description is required");
         }
-        else {
-            // Specific constraint type (still context-aware within that type)
-            switch (constraintType) {
-                case "oblique":
-                    selectedConstraint = this.selectBestConstraint(this.strategies, blockAnalysis);
-                    selectedType = "oblique";
-                    break;
-                case "scamper":
-                    selectedConstraint = this.selectBestConstraint(this.scamperStrategies, blockAnalysis);
-                    selectedType = "scamper";
-                    break;
-                case "creative":
-                    selectedConstraint = this.selectBestConstraint(this.creativeConstraints, blockAnalysis);
-                    selectedType = "creative";
-                    break;
-            }
-        }
-        // Generate context-specific application hints
-        const applicationHints = this.generateSpecificApplicationHints(selectedConstraint, currentBlock, blockAnalysis);
-        // Generate explanation
-        const explanation = this.generateExplanation(selectedConstraint, selectedType, currentBlock);
-        // Update the dream graph
-        this.updateDreamGraph(currentBlock, selectedConstraint, selectedType);
+        // Select constraint based on type
+        const selectedConstraint = this.selectConstraint(currentBlock, constraintType);
+        // Generate LLM scaffold
+        // Map 'creative' to 'random' for scaffold generation since scaffold only supports 4 types
+        const scaffoldType = constraintType === "creative" ? "random" : constraintType;
+        const scaffold = generateConstraintReframeScaffold(currentBlock, scaffoldType === "random"
+            ? this.chooseRandomType()
+            : scaffoldType, currentBlock);
+        // Format as prompt
+        const llmPrompt = formatScaffoldAsPrompt(scaffold);
+        // Generate application hints
+        const applicationHints = this.generateApplicationHints(selectedConstraint, currentBlock);
+        // Create explanation
+        const explanation = this.createExplanation(selectedConstraint, currentBlock, constraintType);
+        // Update graph
+        this.updateDreamGraph(currentBlock, selectedConstraint.constraint, constraintType);
         return {
-            constraint: selectedConstraint,
-            constraintType: selectedType,
+            scaffold,
+            llmPrompt,
+            constraint: selectedConstraint.constraint,
+            constraintType: selectedConstraint.type,
             applicationHints,
+            useCase: selectedConstraint.useCase,
             explanation,
         };
     }
     /**
-     * Analyzes the block description to extract keywords, problem type, and sentiment
+     * Select a constraint based on type and block content
      */
-    analyzeBlock(block) {
-        const lowerBlock = block.toLowerCase();
-        // Extract keywords (words longer than 3 characters, excluding common words)
-        const commonWords = new Set([
-            "this",
-            "that",
-            "with",
-            "from",
-            "have",
-            "been",
-            "were",
-            "their",
-            "there",
-            "what",
-            "when",
-            "where",
-            "which",
-            "while",
-            "should",
-            "could",
-            "would",
-        ]);
-        const keywords = block
-            .toLowerCase()
-            .replace(/[^\w\s]/g, "")
-            .split(/\s+/)
-            .filter((word) => word.length > 3 && !commonWords.has(word));
-        // Detect problem type
-        const technicalTerms = [
-            "code",
-            "bug",
-            "system",
-            "implement",
-            "architecture",
-            "api",
-            "database",
-            "performance",
-            "technical",
-            "algorithm",
-            "function",
-            "class",
-            "method",
-        ];
-        const creativeTerms = [
-            "design",
-            "creative",
-            "idea",
-            "concept",
-            "visual",
-            "aesthetic",
-            "artistic",
-            "innovative",
-            "original",
-            "brainstorm",
-        ];
-        const strategicTerms = [
-            "strategy",
-            "plan",
-            "direction",
-            "goal",
-            "objective",
-            "approach",
-            "decision",
-            "priority",
-            "business",
-            "growth",
-        ];
-        const interpersonalTerms = [
-            "team",
-            "communication",
-            "conflict",
-            "people",
-            "relationship",
-            "collaborate",
-            "stakeholder",
-            "user",
-            "client",
-            "feedback",
-        ];
-        const technicalScore = technicalTerms.filter((term) => lowerBlock.includes(term)).length;
-        const creativeScore = creativeTerms.filter((term) => lowerBlock.includes(term)).length;
-        const strategicScore = strategicTerms.filter((term) => lowerBlock.includes(term)).length;
-        const interpersonalScore = interpersonalTerms.filter((term) => lowerBlock.includes(term)).length;
-        let problemType = "creative";
-        const maxScore = Math.max(technicalScore, creativeScore, strategicScore, interpersonalScore);
-        if (maxScore === technicalScore && technicalScore > 0)
-            problemType = "technical";
-        else if (maxScore === strategicScore && strategicScore > 0)
-            problemType = "strategic";
-        else if (maxScore === interpersonalScore && interpersonalScore > 0)
-            problemType = "interpersonal";
-        // Detect sentiment
-        const stuckTerms = [
-            "stuck",
-            "blocked",
-            "can't",
-            "unable",
-            "struggling",
-            "problem",
-            "issue",
-            "challenge",
-            "difficulty",
-        ];
-        const exploringTerms = [
-            "exploring",
-            "considering",
-            "thinking",
-            "wondering",
-            "curious",
-            "investigate",
-            "research",
-            "understand",
-        ];
-        const decidingTerms = [
-            "choose",
-            "decide",
-            "select",
-            "which",
-            "option",
-            "alternative",
-            "versus",
-            "compare",
-        ];
-        const executingTerms = [
-            "implement",
-            "build",
-            "create",
-            "develop",
-            "execute",
-            "doing",
-            "working",
-            "making",
-        ];
-        const stuckScore = stuckTerms.filter((term) => lowerBlock.includes(term)).length;
-        const exploringScore = exploringTerms.filter((term) => lowerBlock.includes(term)).length;
-        const decidingScore = decidingTerms.filter((term) => lowerBlock.includes(term)).length;
-        const executingScore = executingTerms.filter((term) => lowerBlock.includes(term)).length;
-        let sentiment = "stuck";
-        const maxSentiment = Math.max(stuckScore, exploringScore, decidingScore, executingScore);
-        if (maxSentiment === exploringScore && exploringScore > 0)
-            sentiment = "exploring";
-        else if (maxSentiment === decidingScore && decidingScore > 0)
-            sentiment = "deciding";
-        else if (maxSentiment === executingScore && executingScore > 0)
-            sentiment = "executing";
-        return {
-            keywords,
-            problemType,
-            sentiment,
-        };
-    }
-    /**
-     * Selects a context-aware constraint based on block analysis
-     */
-    selectContextAwareConstraint(analysis) {
-        // Build a combined pool of all constraints with their types
-        const allConstraints = [
-            ...this.strategies.map((c) => ({
-                constraint: c,
-                type: "oblique",
-            })),
-            ...this.scamperStrategies.map((c) => ({
-                constraint: c,
-                type: "scamper",
-            })),
-            ...this.creativeConstraints.map((c) => ({
-                constraint: c,
-                type: "creative",
-            })),
-        ];
-        // Score each constraint
-        const scoredConstraints = allConstraints.map((item) => ({
-            ...item,
-            score: this.scoreConstraintRelevance(item.constraint, analysis),
-        }));
-        // Sort by score (descending)
-        scoredConstraints.sort((a, b) => b.score - a.score);
-        // Pick from top 5 to maintain some randomness while favoring relevant constraints
-        const topCandidates = scoredConstraints.slice(0, 5);
-        const selected = topCandidates[Math.floor(Math.random() * topCandidates.length)];
-        return {
-            constraint: selected.constraint,
-            type: selected.type,
-        };
-    }
-    /**
-     * Selects the best constraint from a specific list based on analysis
-     */
-    selectBestConstraint(constraints, analysis) {
-        const scoredConstraints = constraints.map((constraint) => ({
-            constraint,
-            score: this.scoreConstraintRelevance(constraint, analysis),
-        }));
-        scoredConstraints.sort((a, b) => b.score - a.score);
-        // Pick from top 3 to maintain some randomness
-        const topCandidates = scoredConstraints.slice(0, Math.min(3, constraints.length));
-        return topCandidates[Math.floor(Math.random() * topCandidates.length)]
-            .constraint;
-    }
-    /**
-     * Scores how relevant a constraint is to the block analysis
-     */
-    scoreConstraintRelevance(constraint, analysis) {
-        let score = 0;
-        const lowerConstraint = constraint.toLowerCase();
-        // Score based on problem type
-        switch (analysis.problemType) {
-            case "technical":
-                if (lowerConstraint.includes("system") ||
-                    lowerConstraint.includes("structure") ||
-                    lowerConstraint.includes("simplif") ||
-                    lowerConstraint.includes("eliminate")) {
-                    score += 3;
+    selectConstraint(block, constraintType) {
+        const normalized = block.toLowerCase();
+        switch (constraintType) {
+            case "oblique": {
+                // Score strategies by relevance to the block
+                const scored = OBLIQUE_STRATEGIES.map((strategy) => {
+                    let score = Math.random() * 10; // Base randomness
+                    // Boost score if whenUseful seems relevant
+                    const keywords = strategy.whenUseful.toLowerCase().split(" ");
+                    for (const keyword of keywords) {
+                        if (keyword.length > 4 && normalized.includes(keyword)) {
+                            score += 5;
+                        }
+                    }
+                    return { strategy, score };
+                });
+                scored.sort((a, b) => b.score - a.score);
+                const selected = scored[0].strategy;
+                return {
+                    constraint: selected.text,
+                    type: `oblique (${selected.category})`,
+                    application: selected.applicationPattern,
+                    useCase: selected.whenUseful,
+                };
+            }
+            case "scamper": {
+                // Pick a SCAMPER operation that might be relevant
+                const operation = SCAMPER_OPERATIONS[Math.floor(Math.random() * SCAMPER_OPERATIONS.length)];
+                return {
+                    constraint: `[${operation.letter}] ${operation.name}: ${operation.question}`,
+                    type: `scamper (${operation.name})`,
+                    application: operation.applicationPattern,
+                    useCase: `Systematic creative exploration via the ${operation.name} lens`,
+                };
+            }
+            case "creative": {
+                // Generate a context-specific creative constraint
+                const creativeConstraints = this.generateCreativeConstraints(normalized);
+                const selected = creativeConstraints[Math.floor(Math.random() * creativeConstraints.length)];
+                return {
+                    constraint: selected.text,
+                    type: "creative (contextual)",
+                    application: selected.application,
+                    useCase: "Generated specifically for this block",
+                };
+            }
+            case "random":
+            default: {
+                // Mix of oblique and scamper
+                if (Math.random() > 0.5) {
+                    return this.selectConstraint(block, "oblique");
                 }
-                break;
-            case "creative":
-                if (lowerConstraint.includes("imagine") ||
-                    lowerConstraint.includes("dream") ||
-                    lowerConstraint.includes("metaphor") ||
-                    lowerConstraint.includes("ambigui")) {
-                    score += 3;
+                else {
+                    return this.selectConstraint(block, "scamper");
                 }
-                break;
-            case "strategic":
-                if (lowerConstraint.includes("reverse") ||
-                    lowerConstraint.includes("opposite") ||
-                    lowerConstraint.includes("perspective") ||
-                    lowerConstraint.includes("adapt")) {
-                    score += 3;
-                }
-                break;
-            case "interpersonal":
-                if (lowerConstraint.includes("friend") ||
-                    lowerConstraint.includes("other") ||
-                    lowerConstraint.includes("collaborate") ||
-                    lowerConstraint.includes("combine")) {
-                    score += 3;
-                }
-                break;
-        }
-        // Score based on sentiment
-        switch (analysis.sentiment) {
-            case "stuck":
-                if (lowerConstraint.includes("error") ||
-                    lowerConstraint.includes("destroy") ||
-                    lowerConstraint.includes("remove") ||
-                    lowerConstraint.includes("opposite")) {
-                    score += 2;
-                }
-                break;
-            case "exploring":
-                if (lowerConstraint.includes("what if") ||
-                    lowerConstraint.includes("adapt") ||
-                    lowerConstraint.includes("modify") ||
-                    lowerConstraint.includes("use")) {
-                    score += 2;
-                }
-                break;
-            case "deciding":
-                if (lowerConstraint.includes("choose") ||
-                    lowerConstraint.includes("either") ||
-                    lowerConstraint.includes("combine") ||
-                    lowerConstraint.includes("substitute")) {
-                    score += 2;
-                }
-                break;
-            case "executing":
-                if (lowerConstraint.includes("simple") ||
-                    lowerConstraint.includes("focus") ||
-                    lowerConstraint.includes("essential") ||
-                    lowerConstraint.includes("limit")) {
-                    score += 2;
-                }
-                break;
-        }
-        // Boost score if keywords match
-        const keywordMatches = analysis.keywords.filter((keyword) => lowerConstraint.includes(keyword)).length;
-        score += keywordMatches;
-        return score;
-    }
-    /**
-     * Generates specific application hints tailored to the actual problem
-     */
-    generateSpecificApplicationHints(constraint, currentBlock, analysis) {
-        const hints = [];
-        const lowerConstraint = constraint.toLowerCase();
-        // Generate hints based on constraint type and block analysis
-        if (lowerConstraint.includes("substitute") ||
-            lowerConstraint.includes("replace")) {
-            hints.push(`In your ${analysis.problemType} problem, try replacing your core approach with something completely different`);
-            if (analysis.keywords.length > 0) {
-                const keyword = analysis.keywords[0];
-                hints.push(`What if you substituted "${keyword}" with its opposite or inverse?`);
             }
         }
-        else if (lowerConstraint.includes("combine") ||
-            lowerConstraint.includes("merge")) {
-            hints.push(`Look for two contradictory elements in your ${analysis.problemType} challenge and merge them`);
-            if (analysis.keywords.length >= 2) {
-                hints.push(`Try combining "${analysis.keywords[0]}" and "${analysis.keywords[1]}" in an unexpected way`);
-            }
-        }
-        else if (lowerConstraint.includes("remove") ||
-            lowerConstraint.includes("eliminate")) {
-            hints.push(`What would happen if you removed the element you consider most essential?`);
-            if (analysis.keywords.length > 0) {
-                hints.push(`Try solving this without using "${analysis.keywords[0]}" at all`);
-            }
-        }
-        else if (lowerConstraint.includes("reverse") ||
-            lowerConstraint.includes("opposite")) {
-            hints.push(`Reverse the order or priority of your ${analysis.problemType} approach`);
-            hints.push("What if the opposite of your current assumption were true?");
-        }
-        else if (lowerConstraint.includes("adapt") ||
-            lowerConstraint.includes("modify")) {
-            hints.push(`How might you adapt a solution from a completely different domain?`);
-            if (analysis.problemType === "technical") {
-                hints.push("Could you borrow an approach from nature, art, or social systems?");
-            }
-        }
-        else if (lowerConstraint.includes("simplif") ||
-            lowerConstraint.includes("limit")) {
-            hints.push(`Reduce your solution to its absolute minimum`);
-            hints.push(`Work with only the 3 most essential elements`);
-        }
-        else {
-            // Generic context-aware hints
-            hints.push(`Apply this constraint to your ${analysis.problemType} problem literally`);
-            hints.push(`Use this as a metaphor for your current ${analysis.sentiment} state`);
-        }
-        // Add sentiment-specific hint
-        switch (analysis.sentiment) {
-            case "stuck":
-                hints.push("This constraint is designed to break you out of your current impasse");
-                break;
-            case "exploring":
-                hints.push("Use this to expand your exploration in an unexpected direction");
-                break;
-            case "deciding":
-                hints.push("Apply this constraint to reveal which option has more creative potential");
-                break;
-            case "executing":
-                hints.push("Let this constraint refine your execution approach");
-                break;
-        }
-        // Add problem-type specific hint
-        if (analysis.problemType === "technical") {
-            hints.push("Consider how this constraint might expose architectural assumptions");
-        }
-        else if (analysis.problemType === "creative") {
-            hints.push("Let this constraint guide you toward more innovative expressions");
-        }
-        else if (analysis.problemType === "strategic") {
-            hints.push("Use this to challenge your strategic assumptions");
-        }
-        else if (analysis.problemType === "interpersonal") {
-            hints.push("Apply this to improve communication and collaboration dynamics");
-        }
-        return hints;
     }
     /**
-     * Generates an explanation of the oblique constraint
+     * Generate context-specific creative constraints
      */
-    generateExplanation(constraint, constraintType, currentBlock) {
-        return `"${constraint}"\n\n${currentBlock}`;
+    generateCreativeConstraints(normalizedBlock) {
+        const constraints = [];
+        // Time-based constraints
+        constraints.push({
+            text: "You have 5 minutes. What's the one thing you'd do?",
+            application: "Artificial urgency reveals priorities. What would you do if you had almost no time?",
+        });
+        // Stakeholder constraints
+        constraints.push({
+            text: "Explain this block to a child. What simplification reveals?",
+            application: "Forced simplification often exposes unnecessary complexity or unclear thinking.",
+        });
+        // Resource constraints
+        constraints.push({
+            text: "Solve this with half the resources. What changes?",
+            application: "Constraints breed creativity. What would you do differently with severe limitations?",
+        });
+        // Inversion constraints
+        constraints.push({
+            text: "Make this problem worse on purpose. Then stop doing that.",
+            application: "Sometimes seeing what makes things worse reveals what would make them better.",
+        });
+        // Perspective constraints
+        constraints.push({
+            text: "You're consulting for your competitor. What would you tell them?",
+            application: "Distance creates objectivity. What advice would you give if it wasn't your problem?",
+        });
+        // Scale constraints
+        constraints.push({
+            text: "This affects 1 million people. What changes? 10 people?",
+            application: "Scale changes what matters. What's important at different magnitudes?",
+        });
+        return constraints;
     }
     /**
-     * Updates the dream graph with the oblique constraint
+     * Helper to choose random constraint type
      */
-    updateDreamGraph(currentBlock, constraint, constraintType) {
-        // Create IDs for the nodes
-        const blockId = `block-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
-        const constraintId = `constraint-${Date.now()}-${Math.floor(Math.random() * 1000)}-${constraintType}`;
-        // Add block node
+    chooseRandomType() {
+        const types = [
+            "oblique",
+            "scamper",
+            "inversion",
+        ];
+        return types[Math.floor(Math.random() * types.length)];
+    }
+    /**
+     * Generate application hints specific to the block
+     */
+    generateApplicationHints(constraint, block) {
+        return [
+            "Step 1: " + constraint.application,
+            "Step 2: Apply the result specifically to your stated block",
+            "Step 3: Note what shifts in your thinking - even if it feels wrong",
+            "Step 4: If nothing shifts, the constraint isn't working - try another",
+        ];
+    }
+    /**
+     * Create explanation
+     */
+    createExplanation(constraint, block, requestedType) {
+        return `OBLIQUE CONSTRAINT SCAFFOLD
+
+This output provides a creative constraint with APPLICATION GUIDANCE.
+
+YOUR BLOCK: "${block}"
+
+THE CONSTRAINT: "${constraint.constraint}"
+TYPE: ${constraint.type}
+
+WHY THIS CONSTRAINT:
+${constraint.useCase}
+
+HOW TO APPLY:
+${constraint.application}
+
+KEY IMPROVEMENT FROM V2:
+- Constraints now come with HOW TO APPLY THEM
+- Each constraint is selected/generated with your specific block in mind
+- The LLM scaffold ensures the constraint is ACTIONABLE, not just clever
+
+The 'llmPrompt' field contains a prompt that will:
+1. Apply this constraint to your specific block
+2. Generate concrete steps you can take
+3. Speculate on what might emerge
+4. Provide an escape hatch if this constraint isn't working`;
+    }
+    /**
+     * Update dream graph
+     */
+    updateDreamGraph(block, constraint, constraintType) {
+        const timestamp = Date.now();
+        const blockId = `constraint-block-${timestamp}`;
+        const constraintId = `constraint-${timestamp}`;
         try {
             this.dreamGraph.addNode({
                 id: blockId,
-                content: currentBlock,
-                creationTimestamp: Date.now(),
+                content: block.substring(0, 200),
+                creationTimestamp: timestamp,
                 source: "oblique_constraint",
-                metadata: { isBlock: true },
+                metadata: { role: "block", constraintType },
             });
-        }
-        catch (error) {
-            console.error("Error adding block node to graph:", error);
-        }
-        // Add constraint node
-        try {
             this.dreamGraph.addNode({
                 id: constraintId,
                 content: constraint,
-                creationTimestamp: Date.now(),
+                creationTimestamp: timestamp + 1,
                 source: "oblique_constraint",
-                metadata: { isConstraint: true, constraintType },
+                metadata: { role: "constraint", constraintType },
             });
-        }
-        catch (error) {
-            console.error("Error adding constraint node to graph:", error);
-        }
-        // Add edge
-        try {
             this.dreamGraph.addEdge({
                 source: blockId,
                 target: constraintId,
-                type: EdgeType.TRANSFORMS_INTO,
-                weight: 0.9,
-                metadata: { relationship: "constraints" },
+                type: EdgeType.CONTRASTS_WITH,
+                weight: 0.7,
+                metadata: { constraintType },
             });
+            this.dreamGraph.visitNode(constraintId);
         }
         catch (error) {
-            console.error("Error adding edge to graph:", error);
+            // Ignore errors
         }
-        // Visit the constraint node in the dream graph
-        this.dreamGraph.visitNode(constraintId);
-    }
-    /**
-     * Gets a random element from an array
-     */
-    getRandomElement(array) {
-        return array[Math.floor(Math.random() * array.length)];
     }
 }

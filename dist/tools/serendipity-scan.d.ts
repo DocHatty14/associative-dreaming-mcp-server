@@ -1,94 +1,82 @@
 /**
- * Serendipity Scan - The Unknown Unknown Finder (V4.0 - ECHO CHAMBER FIX)
+ * Serendipity Scan - The Unknown Unknown Finder (V3.0 - LLM-SCAFFOLDED)
  *
  * This tool automates the search for "Unknown Unknowns" - connections and insights
- * that would normally be missed through linear thinking. It analyzes the dream graph
- * using sophisticated graph algorithms to identify structural holes, disconnected clusters,
- * and potential bridges that could connect these disparate ideas.
+ * that would typically be missed through linear thinking.
  *
- * V4.0 CRITICAL FIX - THE ECHO CHAMBER BUG:
- * - Filters out recently visited concepts from traversal history
- * - Implements temporal diversity scoring with configurable recency window
- * - Adds aging mechanism - older concepts gradually become eligible again
- * - Graceful fallback when all concepts are recent
- * - Ensures TRUE serendipity instead of echoing recent history
- *
- * V3.0 ENHANCEMENTS:
- * - TRUE cluster detection using DFS-based community finding
- * - Betweenness centrality for identifying bridge nodes
- * - Meaningful serendipity scoring based on novelty, relevance, and centrality
- * - Context-aware concept discovery with semantic relevance calculation
- * - Rich, formatted explanations for each discovery type
+ * V3.0 MAJOR REFACTOR:
+ * - NOW WORKS ON EMPTY GRAPHS - mines user context directly
+ * - Outputs LLM scaffolds instead of template strings
+ * - Context-mining mode: extracts concepts from user input when graph is empty
+ * - Seed generation: identifies high-potential entry points for exploration
+ * - "Because chains" for all discoveries
  */
 import { DreamGraph } from "../graph.js";
+import { CreativeScaffold } from "../prompts/creative-scaffolds.js";
 export interface SerendipityScanInput {
     currentContext: string;
     noveltyThreshold?: number;
     scanType?: "bridge" | "gap" | "pattern" | "random";
-    recentHistoryWindow?: number;
 }
 export interface SerendipityScanOutput {
+    /** LLM scaffold for serendipitous discovery */
+    scaffold: CreativeScaffold;
+    /** Formatted prompt ready for Claude to process */
+    llmPrompt: string;
+    /** Discovered concept (placeholder or extracted) */
     discoveredConcept: string;
+    /** The scan type used */
     scanType: string;
+    /** Serendipity score estimate */
     serendipityScore: number;
+    /** Concepts extracted from context (for empty graph) */
+    extractedConcepts: string[];
+    /** Seed probes for exploration */
+    seedProbes: string[];
+    /** Related concepts from graph (if available) */
     relatedConcepts: string[];
+    /** Full explanation */
     explanation: string;
 }
 /**
- * The Serendipity Scan tool (V3.0 - REWRITTEN)
- * Identifies surprising connections and bridges between disconnected concepts
+ * The Serendipity Scan tool (V3.0 - LLM-SCAFFOLDED)
+ * Now works on empty graphs by mining user context
  */
 export declare class SerendipityScanTool {
     private dreamGraph;
     constructor(dreamGraph: DreamGraph);
     performScan(input: SerendipityScanInput): SerendipityScanOutput;
     /**
-     * Gets recently visited node IDs from traversal history
-     * V4.0: Core of the echo chamber fix
+     * Get current graph state for context
      */
-    private getRecentNodeIds;
+    private getGraphState;
     /**
-     * Filters nodes to exclude recently visited ones
-     * V4.0: Ensures temporal diversity
+     * Extract concepts from user context text
+     * This is the key to working on empty graphs
      */
-    private filterRecentNodes;
+    private extractConceptsFromContext;
     /**
-     * Calculates temporal diversity score based on node age and recency
-     * V4.0: Aging mechanism - older concepts gradually become more eligible
+     * Generate seed probes for exploration based on context
      */
-    private calculateTemporalDiversityScore;
+    private generateSeedProbes;
     /**
-     * BRIDGE: Find concepts connecting different idea clusters
-     * V4.0: Now excludes recently visited concepts
+     * Find related concepts from graph
      */
-    private findBridgeConcept;
+    private findRelatedConcepts;
     /**
-     * GAP: Find missing connections between related concepts
-     * V4.0: Now excludes recently visited concepts
+     * Generate provisional discovery based on context mining
      */
-    private findGapConcept;
+    private generateProvisionalDiscovery;
     /**
-     * PATTERN: Find recurring structural patterns in the graph
-     * V4.0: Now excludes recently visited concepts from exemplars
+     * Estimate serendipity score
      */
-    private findPatternConcept;
+    private estimateSerendipityScore;
     /**
-     * RANDOM: High-diversity random concept
-     * V4.0: THE CRITICAL FIX - Now excludes recently visited concepts
+     * Create explanation of the output
      */
-    private findRandomConcept;
+    private createExplanation;
     /**
-     * Calculate semantic relevance (simplified - uses keyword matching)
-     * In production, could use embeddings or better NLP
+     * Update dream graph with discovery context
      */
-    private calculateRelevance;
-    /**
-     * Get concepts from cluster IDs
-     */
-    private getConceptsFromClusters;
-    private formatDiscovery;
-    private explainBridgeDiscovery;
-    private explainGapDiscovery;
-    private explainPatternDiscovery;
-    private explainRandomDiscovery;
+    private updateDreamGraph;
 }

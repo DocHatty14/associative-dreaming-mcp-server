@@ -1,69 +1,66 @@
 /**
- * Oblique Constraint - The Entropy Injector V2.0
+ * Oblique Constraint - The Entropy Injector (V3.0 - LLM-SCAFFOLDED)
  *
- * This tool implements Brian Eno's Oblique Strategies and SCAMPER techniques.
- * It acts as a "Circuit Breaker" for linear rigidity by introducing
- * deliberate constraints that force creative thinking and pattern breaking.
+ * This tool implements Brian Eno's Oblique Strategies and SCAMPER techniques
+ * to act as a "Circuit Breaker" for rigid thinking.
  *
- * V2.0: Added context-aware constraint selection that analyzes the block
- * description to pick relevant constraints and generate specific application hints.
+ * V3.0 MAJOR REFACTOR:
+ * - Outputs LLM SCAFFOLDS with actionable application guidance
+ * - Each constraint includes HOW TO APPLY IT (not just the constraint)
+ * - "What might emerge" section forces productive speculation
+ * - Constraints are grounded in user's actual block, not generic
  */
 import { DreamGraph } from "../graph.js";
+import { CreativeScaffold } from "../prompts/creative-scaffolds.js";
 export interface ObliqueConstraintInput {
     currentBlock: string;
     constraintType?: "oblique" | "scamper" | "creative" | "random";
 }
 export interface ObliqueConstraintOutput {
+    /** LLM scaffold for applying the constraint */
+    scaffold: CreativeScaffold;
+    /** Formatted prompt ready for Claude */
+    llmPrompt: string;
+    /** The constraint itself */
     constraint: string;
+    /** Type of constraint */
     constraintType: string;
+    /** How to apply this constraint */
     applicationHints: string[];
+    /** When this constraint is useful */
+    useCase: string;
+    /** Full explanation */
     explanation: string;
 }
 /**
- * The Oblique Constraint tool
- * Injects creative constraints to break linear thinking
+ * The Oblique Constraint tool (V3.0 - LLM-SCAFFOLDED)
  */
 export declare class ObliqueConstraintTool {
     private dreamGraph;
-    private strategies;
-    private scamperStrategies;
-    private creativeConstraints;
     constructor(dreamGraph: DreamGraph);
-    /**
-     * Loads the oblique strategies and other constraints from the JSON file
-     */
-    private loadConstraints;
     generateConstraint(input: ObliqueConstraintInput): ObliqueConstraintOutput;
     /**
-     * Analyzes the block description to extract keywords, problem type, and sentiment
+     * Select a constraint based on type and block content
      */
-    private analyzeBlock;
+    private selectConstraint;
     /**
-     * Selects a context-aware constraint based on block analysis
+     * Generate context-specific creative constraints
      */
-    private selectContextAwareConstraint;
+    private generateCreativeConstraints;
     /**
-     * Selects the best constraint from a specific list based on analysis
+     * Helper to choose random constraint type
      */
-    private selectBestConstraint;
+    private chooseRandomType;
     /**
-     * Scores how relevant a constraint is to the block analysis
+     * Generate application hints specific to the block
      */
-    private scoreConstraintRelevance;
+    private generateApplicationHints;
     /**
-     * Generates specific application hints tailored to the actual problem
+     * Create explanation
      */
-    private generateSpecificApplicationHints;
+    private createExplanation;
     /**
-     * Generates an explanation of the oblique constraint
-     */
-    private generateExplanation;
-    /**
-     * Updates the dream graph with the oblique constraint
+     * Update dream graph
      */
     private updateDreamGraph;
-    /**
-     * Gets a random element from an array
-     */
-    private getRandomElement;
 }

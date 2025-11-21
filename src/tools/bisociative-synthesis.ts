@@ -1,23 +1,29 @@
 /**
- * Bisociative Synthesis - The Combinatorial Engine (ENHANCED)
+ * Bisociative Synthesis - The Combinatorial Engine (V3.0 - LLM-SCAFFOLDED)
  *
  * This tool forces the intersection of two unrelated matrices of thought.
  * Based on Arthur Koestler's theory of Bisociation and Conceptual Blending Theory.
  *
- * ENHANCEMENTS:
- * - Expanded from 6 to 15 diverse domains
- * - Context-aware, domain-specific mappings
- * - Richer explanations with actual cross-domain insights
- * - Better bridge concept generation
+ * V3.0 MAJOR REFACTOR:
+ * - Outputs are now LLM SCAFFOLDS, not template-filled strings
+ * - The server provides STRUCTURE, Claude provides INSIGHT
+ * - Each output includes a structured prompt for genuine creative reasoning
+ * - "Because chains" force justification of connections
+ * - Grounded in user's actual context, not generic mappings
  */
 
 import { DreamGraph, Node, EdgeType } from "../graph.js";
+import {
+  generateBisociativeBridgeScaffold,
+  formatScaffoldAsPrompt,
+  CreativeScaffold,
+} from "../prompts/creative-scaffolds.js";
 
-// Expanded domain categories - from 6 to 15 domains
+// Domain knowledge - used to SELECT domains and provide hints, not to generate output
 const DOMAINS = [
   {
     name: "biology",
-    concepts: [
+    keywords: [
       "evolution",
       "ecosystem",
       "cell",
@@ -28,13 +34,8 @@ const DOMAINS = [
       "homeostasis",
       "mutation",
       "natural selection",
-      "biodiversity",
-      "predator-prey",
-      "succession",
-      "fitness",
-      "speciation",
     ],
-    structures: [
+    structuralPatterns: [
       "hierarchical organization",
       "feedback loops",
       "distributed networks",
@@ -44,12 +45,11 @@ const DOMAINS = [
       "modularity",
       "self-organization",
       "co-evolution",
-      "niche partitioning",
     ],
   },
   {
     name: "architecture",
-    concepts: [
+    keywords: [
       "structure",
       "form",
       "function",
@@ -61,13 +61,8 @@ const DOMAINS = [
       "proportion",
       "rhythm",
       "balance",
-      "threshold",
-      "circulation",
-      "light",
-      "enclosure",
-      "tectonics",
     ],
-    structures: [
+    structuralPatterns: [
       "load-bearing systems",
       "circulation patterns",
       "modular components",
@@ -75,14 +70,12 @@ const DOMAINS = [
       "symmetry",
       "negative space",
       "environmental integration",
-      "structural honesty",
       "spatial hierarchy",
-      "tension and compression",
     ],
   },
   {
     name: "music",
-    concepts: [
+    keywords: [
       "harmony",
       "rhythm",
       "melody",
@@ -95,12 +88,8 @@ const DOMAINS = [
       "resolution",
       "theme",
       "motif",
-      "dissonance",
-      "consonance",
-      "phrasing",
-      "development",
     ],
-    structures: [
+    structuralPatterns: [
       "patterns",
       "repetition with variation",
       "layering",
@@ -109,14 +98,11 @@ const DOMAINS = [
       "transitions",
       "development",
       "theme and variation",
-      "fugue",
-      "crescendo",
-      "harmonic progression",
     ],
   },
   {
     name: "economics",
-    concepts: [
+    keywords: [
       "market",
       "value",
       "exchange",
@@ -129,11 +115,8 @@ const DOMAINS = [
       "distribution",
       "trade",
       "utility",
-      "opportunity cost",
-      "liquidity",
-      "leverage",
     ],
-    structures: [
+    structuralPatterns: [
       "feedback mechanisms",
       "flows",
       "game theory",
@@ -142,13 +125,11 @@ const DOMAINS = [
       "resource allocation",
       "supply chains",
       "price signals",
-      "comparative advantage",
-      "diminishing returns",
     ],
   },
   {
     name: "mythology",
-    concepts: [
+    keywords: [
       "archetype",
       "hero",
       "journey",
@@ -161,26 +142,21 @@ const DOMAINS = [
       "creation",
       "destruction",
       "trickster",
-      "threshold",
-      "mentor",
-      "shadow",
     ],
-    structures: [
+    structuralPatterns: [
       "cyclical patterns",
       "opposing forces",
       "symbolic representations",
       "narrative arcs",
       "thresholds",
       "tests",
-      "metaphorical layers",
       "death and rebirth",
       "quest structure",
-      "cosmology",
     ],
   },
   {
     name: "game design",
-    concepts: [
+    keywords: [
       "rules",
       "mechanics",
       "balance",
@@ -192,12 +168,8 @@ const DOMAINS = [
       "reward",
       "strategy",
       "emergence",
-      "difficulty curve",
-      "flow state",
-      "mastery",
-      "meta-game",
     ],
-    structures: [
+    structuralPatterns: [
       "core loops",
       "risk/reward systems",
       "decision trees",
@@ -206,13 +178,11 @@ const DOMAINS = [
       "economies",
       "state machines",
       "skill expression",
-      "positive/negative feedback",
-      "mechanical depth",
     ],
   },
   {
     name: "urban planning",
-    concepts: [
+    keywords: [
       "density",
       "connectivity",
       "zoning",
@@ -223,13 +193,8 @@ const DOMAINS = [
       "infrastructure",
       "mixed-use",
       "walkability",
-      "sustainability",
-      "nodes",
-      "corridors",
-      "edges",
-      "landmarks",
     ],
-    structures: [
+    structuralPatterns: [
       "grid patterns",
       "hub-and-spoke",
       "organic growth",
@@ -237,14 +202,11 @@ const DOMAINS = [
       "spatial hierarchy",
       "land use patterns",
       "transit-oriented development",
-      "urban fabric",
-      "neighborhood structure",
-      "regional systems",
     ],
   },
   {
     name: "jazz improvisation",
-    concepts: [
+    keywords: [
       "spontaneity",
       "conversation",
       "theme",
@@ -256,27 +218,20 @@ const DOMAINS = [
       "tension",
       "release",
       "solo",
-      "comping",
-      "trading fours",
-      "groove",
-      "phrasing",
     ],
-    structures: [
+    structuralPatterns: [
       "cyclical structures",
       "question and answer",
       "building intensity",
       "thematic development",
       "motivic variation",
       "polyrhythm",
-      "layered interaction",
       "space and density",
-      "dynamic contrast",
-      "melodic storytelling",
     ],
   },
   {
     name: "immune system",
-    concepts: [
+    keywords: [
       "recognition",
       "response",
       "memory",
@@ -285,13 +240,10 @@ const DOMAINS = [
       "adaptation",
       "surveillance",
       "elimination",
-      "self vs non-self",
       "antibody",
       "antigen",
-      "inflammation",
-      "regulation",
     ],
-    structures: [
+    structuralPatterns: [
       "distributed detection",
       "cascade amplification",
       "memory storage",
@@ -299,14 +251,11 @@ const DOMAINS = [
       "adaptive response",
       "multilayered defense",
       "self-regulation",
-      "clonal selection",
-      "immune repertoire",
-      "tolerance mechanisms",
     ],
   },
   {
     name: "supply chain",
-    concepts: [
+    keywords: [
       "procurement",
       "logistics",
       "inventory",
@@ -317,12 +266,8 @@ const DOMAINS = [
       "optimization",
       "resilience",
       "visibility",
-      "coordination",
-      "buffer",
-      "forecasting",
-      "fulfillment",
     ],
-    structures: [
+    structuralPatterns: [
       "network topology",
       "push vs pull",
       "just-in-time",
@@ -331,13 +276,11 @@ const DOMAINS = [
       "buffer management",
       "information flow",
       "constraint management",
-      "redundancy planning",
-      "demand propagation",
     ],
   },
   {
     name: "gardening",
-    concepts: [
+    keywords: [
       "cultivation",
       "soil",
       "season",
@@ -348,13 +291,9 @@ const DOMAINS = [
       "companion planting",
       "harvest",
       "perennial",
-      "annual",
-      "biodiversity",
       "composting",
-      "microclimate",
-      "propagation",
     ],
-    structures: [
+    structuralPatterns: [
       "cyclical processes",
       "layered systems",
       "succession planning",
@@ -362,29 +301,24 @@ const DOMAINS = [
       "resource cycling",
       "timing coordination",
       "spatial arrangement",
-      "maintenance rhythm",
-      "seasonal adaptation",
     ],
   },
   {
     name: "theater",
-    concepts: [
+    keywords: [
       "performance",
       "character",
       "conflict",
       "resolution",
       "tension",
       "climax",
-      "denouement",
       "subtext",
       "blocking",
       "timing",
       "ensemble",
       "improvisation",
-      "rehearsal",
-      "audience",
     ],
-    structures: [
+    structuralPatterns: [
       "dramatic arc",
       "act structure",
       "scene progression",
@@ -393,13 +327,11 @@ const DOMAINS = [
       "ensemble dynamics",
       "stage composition",
       "rhythm and pacing",
-      "entrances and exits",
-      "rising action",
     ],
   },
   {
     name: "martial arts",
-    concepts: [
+    keywords: [
       "balance",
       "center",
       "flow",
@@ -411,12 +343,8 @@ const DOMAINS = [
       "technique",
       "principle",
       "efficiency",
-      "entry",
-      "evasion",
-      "control",
-      "release",
     ],
-    structures: [
+    structuralPatterns: [
       "circular motion",
       "redirection",
       "momentum transfer",
@@ -424,14 +352,12 @@ const DOMAINS = [
       "spatial control",
       "progressive refinement",
       "principle-based response",
-      "continuous adjustment",
       "energy management",
-      "tactical positioning",
     ],
   },
   {
     name: "storytelling",
-    concepts: [
+    keywords: [
       "narrative",
       "character",
       "conflict",
@@ -444,11 +370,8 @@ const DOMAINS = [
       "payoff",
       "tension",
       "resolution",
-      "perspective",
-      "voice",
-      "structure",
     ],
-    structures: [
+    structuralPatterns: [
       "three-act structure",
       "hero's journey",
       "nested loops",
@@ -457,13 +380,11 @@ const DOMAINS = [
       "escalation",
       "cause and effect",
       "emotional beats",
-      "dramatic irony",
-      "thematic resonance",
     ],
   },
   {
     name: "epidemiology",
-    concepts: [
+    keywords: [
       "transmission",
       "reproduction rate",
       "susceptible",
@@ -474,12 +395,8 @@ const DOMAINS = [
       "containment",
       "immunity",
       "contact tracing",
-      "incubation",
-      "virulence",
-      "reservoir",
-      "surveillance",
     ],
-    structures: [
+    structuralPatterns: [
       "network propagation",
       "exponential growth",
       "threshold dynamics",
@@ -487,142 +404,47 @@ const DOMAINS = [
       "intervention strategies",
       "herd immunity",
       "super-spreader events",
-      "compartmental models",
-      "feedback control",
     ],
   },
 ];
 
-// Enhanced structural patterns with richer examples
+// Structural pattern hints for different isomorphic patterns
 const ISOMORPHIC_PATTERNS = [
   {
     name: "hierarchy",
-    description:
-      "Layered organization with relationships of control, composition, or abstraction",
-    examples: {
-      biology:
-        "ecosystem -> community -> population -> organism -> organ -> cell",
-      architecture: "building -> floor -> room -> zone -> element -> detail",
-      software: "system -> application -> module -> function -> statement",
-      organization:
-        "corporation -> division -> department -> team -> individual",
-    },
-    mappingHints: [
-      "levels",
-      "containment",
-      "abstraction",
-      "delegation",
-      "emergence",
-    ],
+    hints: ["levels", "containment", "abstraction", "delegation", "emergence"],
   },
   {
     name: "network",
-    description:
-      "Decentralized connections between nodes enabling distributed exchange",
-    examples: {
-      biology: "neural networks, mycelial networks, food webs",
-      social: "social networks, collaboration networks, trade networks",
-      technology: "internet, peer-to-peer, distributed systems",
-      transportation: "road networks, airline routes, shipping lanes",
-    },
-    mappingHints: [
-      "nodes",
-      "edges",
-      "topology",
-      "connectivity",
-      "flow",
-      "hubs",
-    ],
+    hints: ["nodes", "edges", "topology", "connectivity", "flow", "hubs"],
   },
   {
     name: "cycle",
-    description:
-      "Processes that return to starting point, creating loops and rhythms",
-    examples: {
-      nature: "water cycle, carbon cycle, seasons, circadian rhythms",
-      economics: "business cycles, boom and bust, circular economy",
-      narrative: "hero's journey, eternal return, cyclical history",
-    },
-    mappingHints: ["repetition", "rhythm", "periodicity", "return", "renewal"],
+    hints: ["repetition", "rhythm", "periodicity", "return", "renewal"],
   },
   {
     name: "emergence",
-    description:
-      "Complex wholes arising from simpler parts through interaction",
-    examples: {
-      biology: "consciousness from neurons, flocking from individual birds",
-      physics: "temperature from molecular motion, phase transitions",
-      social: "culture from individuals, market behavior from trades",
-      computing: "intelligence from simple rules, Conway's Game of Life",
-    },
-    mappingHints: [
+    hints: [
       "collective behavior",
       "self-organization",
       "higher-order properties",
-      "unexpected outcomes",
     ],
   },
   {
     name: "feedback",
-    description: "Outputs returning as inputs, creating self-regulating loops",
-    examples: {
-      biology: "homeostasis, predator-prey dynamics, hormone regulation",
-      engineering: "thermostats, cruise control, autopilots",
-      economics: "price mechanisms, compound interest, network effects",
-      social: "reputation systems, viral loops, echo chambers",
-    },
-    mappingHints: [
-      "reinforcement",
-      "dampening",
-      "amplification",
-      "stability",
-      "runaway effects",
-    ],
+    hints: ["reinforcement", "dampening", "amplification", "stability"],
   },
   {
     name: "symmetry-breaking",
-    description: "Transition from uniform to differentiated states",
-    examples: {
-      physics: "phase transitions, crystallization, magnetization",
-      biology: "embryonic development, cell differentiation, pattern formation",
-      social: "wealth inequality, city formation, specialization",
-      design: "focal points, emphasis, contrast, asymmetric balance",
-    },
-    mappingHints: [
-      "differentiation",
-      "specialization",
-      "contrast",
-      "focal points",
-      "divergence",
-    ],
+    hints: ["differentiation", "specialization", "contrast", "divergence"],
   },
   {
     name: "tension-resolution",
-    description: "Build-up of potential followed by release and equilibrium",
-    examples: {
-      music: "dissonance to consonance, crescendo to resolution",
-      narrative: "conflict to resolution, tension to climax",
-      physics: "stress and strain, potential and kinetic energy",
-      architecture: "compression and release, structural tension",
-    },
-    mappingHints: [
-      "build-up",
-      "release",
-      "equilibrium",
-      "expectation",
-      "satisfaction",
-    ],
+    hints: ["build-up", "release", "equilibrium", "expectation"],
   },
   {
     name: "layering",
-    description: "Stacked levels of abstraction or organization",
-    examples: {
-      computing: "OSI model, software layers, abstraction levels",
-      architecture: "structure, skin, services, space plan",
-      biology: "organism, tissue, cellular, molecular",
-      design: "content, structure, presentation layers",
-    },
-    mappingHints: [
+    hints: [
       "abstraction",
       "encapsulation",
       "interface",
@@ -631,31 +453,11 @@ const ISOMORPHIC_PATTERNS = [
   },
   {
     name: "flow",
-    description: "Continuous movement through a system with varying dynamics",
-    examples: {
-      fluid: "laminar and turbulent flow, eddies, currents",
-      traffic: "throughput, congestion, merging, bottlenecks",
-      information: "data pipelines, information cascades",
-      economics: "cash flow, supply chains, resource allocation",
-    },
-    mappingHints: [
-      "throughput",
-      "bottleneck",
-      "velocity",
-      "obstruction",
-      "pathway",
-    ],
+    hints: ["throughput", "bottleneck", "velocity", "obstruction", "pathway"],
   },
   {
     name: "call-response",
-    description: "Alternating exchange creating dialogue and interaction",
-    examples: {
-      music: "antiphony, question-answer phrases, trading solos",
-      communication: "conversation, debate, negotiation",
-      biology: "predator-prey adaptation, co-evolution",
-      theater: "dialogue, ensemble interaction",
-    },
-    mappingHints: [
+    hints: [
       "dialogue",
       "reciprocity",
       "turn-taking",
@@ -673,17 +475,32 @@ export interface BisociativeSynthesisInput {
 }
 
 export interface BisociativeSynthesisOutput {
+  /** LLM scaffold for genuine insight generation */
+  scaffold: CreativeScaffold;
+
+  /** Formatted prompt ready for Claude to process */
+  llmPrompt: string;
+
+  /** Bridge concept (placeholder until LLM fills it) */
   bridgeConcept: string;
+
+  /** The two domains being connected */
   matrixA: string;
   matrixB: string;
-  pattern: string;
-  mapping: Record<string, string>;
+
+  /** Suggested structural pattern */
+  suggestedPattern: string;
+
+  /** Pattern hints to guide the LLM */
+  patternHints: string[];
+
+  /** Explanation of what the LLM should do */
   explanation: string;
 }
 
 /**
- * The Bisociative Synthesis tool (ENHANCED VERSION)
- * Combines concepts from different matrices of thought
+ * The Bisociative Synthesis tool (V3.0 - LLM-SCAFFOLDED)
+ * Returns prompts that guide Claude toward genuine insight, not pre-filled templates
  */
 export class BisociativeSynthesisTool {
   private dreamGraph: DreamGraph;
@@ -701,92 +518,107 @@ export class BisociativeSynthesisTool {
       throw new Error("Matrix A (problem domain) is required");
     }
 
-    // Select or validate matrixB
+    // Select or validate matrixB - choose a domain that's genuinely different
     const selectedMatrixB = matrixB || this.selectComplementaryDomain(matrixA);
 
-    // Find the best isomorphism
-    const isomorphism = this.findIsomorphism(
+    // Identify the best structural pattern to suggest
+    const patternInfo = this.identifyPattern(
       matrixA,
       selectedMatrixB,
       blendType,
     );
 
-    // Create context-aware mapping
-    const mapping = this.createContextAwareMapping(
+    // Generate the LLM scaffold - this is the key change
+    const scaffold = generateBisociativeBridgeScaffold(
       matrixA,
       selectedMatrixB,
-      isomorphism,
+      matrixA, // Use matrixA as the user context for now
+      patternInfo.name,
     );
 
-    // Generate bridge concept
-    const bridgeConcept = this.generateBridgeConcept(
+    // Format the scaffold as a prompt
+    const llmPrompt = formatScaffoldAsPrompt(scaffold);
+
+    // Generate a provisional bridge concept (will be replaced by LLM)
+    const provisionalBridge = this.generateProvisionalBridge(
       matrixA,
       selectedMatrixB,
-      isomorphism,
-      mapping,
+      patternInfo.name,
     );
 
-    // Create rich explanation
-    const explanation = this.createRichExplanation(
+    // Create explanation
+    const explanation = this.createExplanation(
       matrixA,
       selectedMatrixB,
-      isomorphism,
-      mapping,
-      bridgeConcept,
+      patternInfo,
     );
 
-    // Update graph
-    this.updateDreamGraph(matrixA, selectedMatrixB, isomorphism, bridgeConcept);
+    // Update graph with the domains (not the insight - that comes from LLM)
+    this.updateDreamGraph(
+      matrixA,
+      selectedMatrixB,
+      patternInfo.name,
+      provisionalBridge,
+    );
 
     return {
-      bridgeConcept,
+      scaffold,
+      llmPrompt,
+      bridgeConcept: provisionalBridge,
       matrixA,
       matrixB: selectedMatrixB,
-      pattern: isomorphism.name,
-      mapping,
+      suggestedPattern: patternInfo.name,
+      patternHints: patternInfo.hints,
       explanation,
     };
   }
 
   /**
-   * Selects a complementary domain that's different enough to be interesting
+   * Selects a complementary domain that's genuinely different from matrixA
    */
   private selectComplementaryDomain(matrixA: string): string {
     const normalized = matrixA.toLowerCase();
 
-    // Filter out domains too similar to matrixA
-    const eligibleDomains = DOMAINS.filter((domain) => {
-      const domainName = domain.name.toLowerCase();
-      // Exclude if domain name appears in query or vice versa
-      if (normalized.includes(domainName) || domainName.includes(normalized)) {
-        return false;
+    // Score domains by how DIFFERENT they are from matrixA
+    const scoredDomains = DOMAINS.map((domain) => {
+      let similarityScore = 0;
+
+      // Check keyword overlap
+      for (const keyword of domain.keywords) {
+        if (normalized.includes(keyword) || keyword.includes(normalized)) {
+          similarityScore += 10;
+        }
       }
-      // Exclude if many concepts match
-      const matchingConcepts = domain.concepts.filter(
-        (c) =>
-          normalized.includes(c.toLowerCase()) ||
-          c.toLowerCase().includes(normalized),
-      );
-      return matchingConcepts.length < 3;
+
+      // Check if domain name appears in query
+      if (
+        normalized.includes(domain.name) ||
+        domain.name.includes(normalized)
+      ) {
+        similarityScore += 20;
+      }
+
+      // Add randomness to avoid always picking the same domain
+      const randomness = Math.random() * 5;
+
+      return {
+        domain: domain.name,
+        difference: 100 - similarityScore + randomness,
+      };
     });
 
-    if (eligibleDomains.length === 0) {
-      // Fallback to any random domain
-      return DOMAINS[Math.floor(Math.random() * DOMAINS.length)].name;
-    }
+    // Sort by difference (most different first)
+    scoredDomains.sort((a, b) => b.difference - a.difference);
 
-    // Prefer domains with more structural richness
-    const richDomains = eligibleDomains.filter((d) => d.structures.length >= 8);
-    const selectionPool =
-      richDomains.length > 0 ? richDomains : eligibleDomains;
-
-    return selectionPool[Math.floor(Math.random() * selectionPool.length)].name;
+    // Pick from the top 3 most different domains randomly
+    const topDomains = scoredDomains.slice(0, 3);
+    return topDomains[Math.floor(Math.random() * topDomains.length)].domain;
   }
 
   /**
-   * Finds the best isomorphic pattern
+   * Identify the best structural pattern for this pair
    */
-  private findIsomorphism(
+  private identifyPattern(
     matrixA: string,
     matrixB: string,
     preferredPattern?: string,
@@ -799,213 +631,78 @@ export class BisociativeSynthesisTool {
       if (pattern) return pattern;
     }
 
-    // Score patterns based on relevance to both domains
-    const patternScores = ISOMORPHIC_PATTERNS.map((pattern) => {
+    // Score patterns based on relevance
+    const normalizedA = matrixA.toLowerCase();
+    const normalizedB = matrixB.toLowerCase();
+
+    const scoredPatterns = ISOMORPHIC_PATTERNS.map((pattern) => {
       let score = 0;
-      const normalizedA = matrixA.toLowerCase();
-      const normalizedB = matrixB.toLowerCase();
 
-      // Check if pattern keywords appear in domain descriptions
-      const patternKeywords = [
-        ...pattern.mappingHints,
-        ...pattern.description.toLowerCase().split(" "),
-      ];
+      // Check if pattern hints appear in either domain
+      for (const hint of pattern.hints) {
+        if (normalizedA.includes(hint)) score += 2;
+        if (normalizedB.includes(hint)) score += 2;
+      }
 
-      patternKeywords.forEach((keyword) => {
-        if (normalizedA.includes(keyword)) score += 1;
-        if (normalizedB.includes(keyword)) score += 1;
-      });
-
-      // Check if pattern examples mention domains
-      Object.keys(pattern.examples).forEach((exampleDomain) => {
-        if (
-          normalizedA.includes(exampleDomain) ||
-          exampleDomain.includes(normalizedA)
-        )
-          score += 3;
-        if (
-          normalizedB.includes(exampleDomain) ||
-          exampleDomain.includes(normalizedB)
-        )
-          score += 3;
-      });
-
-      // Add randomness to prevent same pattern always winning
-      score += Math.random() * 2;
+      // Add randomness to vary results
+      score += Math.random() * 3;
 
       return { pattern, score };
     });
 
-    // Return highest scoring pattern
-    patternScores.sort((a, b) => b.score - a.score);
-    return patternScores[0].pattern;
+    scoredPatterns.sort((a, b) => b.score - a.score);
+    return scoredPatterns[0].pattern;
   }
 
   /**
-   * Creates context-aware mappings based on actual domain content
+   * Generate a provisional bridge concept
+   * This is just a placeholder - the REAL insight comes from the LLM
    */
-  private createContextAwareMapping(
+  private generateProvisionalBridge(
     domainA: string,
     domainB: string,
-    pattern: (typeof ISOMORPHIC_PATTERNS)[0],
-  ): Record<string, string> {
-    const mapping: Record<string, string> = {};
-
-    // Find domain objects
-    const domainBObj = DOMAINS.find(
-      (d) => d.name.toLowerCase() === domainB.toLowerCase(),
-    );
-
-    if (!domainBObj) {
-      // Generic fallback
-      return {
-        element: "component",
-        process: "transformation",
-        structure: "organization",
-        relationship: "connection",
-      };
-    }
-
-    // Create pattern-specific mappings using actual domain concepts
-    const hints = pattern.mappingHints;
-    const concepts = domainBObj.concepts;
-    const structures = domainBObj.structures;
-
-    // Map based on pattern type
-    switch (pattern.name) {
-      case "hierarchy":
-        mapping["system"] = concepts[0] || "whole";
-        mapping["subsystem"] = concepts[2] || "part";
-        mapping["levels"] = structures[0] || "layers";
-        mapping["emergence"] = "higher-order properties";
-        mapping["composition"] = structures[6] || "modularity";
-        break;
-
-      case "network":
-        mapping["nodes"] = concepts[1] || "entities";
-        mapping["connections"] = "relationships";
-        mapping["topology"] = structures[0] || "structure";
-        mapping["flow"] = concepts[4] || "exchange";
-        mapping["hubs"] = "central nodes";
-        break;
-
-      case "cycle":
-        mapping["phases"] = concepts[3] || "stages";
-        mapping["rhythm"] = structures[1] || "periodicity";
-        mapping["renewal"] = concepts[5] || "regeneration";
-        mapping["feedback"] = "return loop";
-        mapping["timing"] = "temporal coordination";
-        break;
-
-      case "emergence":
-        mapping["components"] = concepts[2] || "elements";
-        mapping["interaction"] = "collective behavior";
-        mapping["whole"] = concepts[0] || "system";
-        mapping["properties"] = structures[3] || "characteristics";
-        mapping["spontaneous"] = "self-organizing";
-        break;
-
-      case "feedback":
-        mapping["input"] = concepts[7] || "stimulus";
-        mapping["output"] = concepts[8] || "response";
-        mapping["adjustment"] = structures[1] || "regulation";
-        mapping["amplification"] = "reinforcement";
-        mapping["dampening"] = "stabilization";
-        break;
-
-      case "symmetry-breaking":
-        mapping["uniformity"] = "homogeneous state";
-        mapping["differentiation"] = concepts[4] || "specialization";
-        mapping["catalyst"] = concepts[9] || "trigger";
-        mapping["pattern"] = structures[9] || "organization";
-        mapping["divergence"] = "branching";
-        break;
-
-      case "tension-resolution":
-        mapping["build-up"] = concepts[4] || "accumulation";
-        mapping["peak"] = "maximum tension";
-        mapping["release"] = concepts[6] || "resolution";
-        mapping["equilibrium"] = structures[2] || "balance";
-        mapping["anticipation"] = "expectation";
-        break;
-
-      case "layering":
-        mapping["layers"] = structures[3] || "strata";
-        mapping["interface"] = "boundary";
-        mapping["abstraction"] = concepts[5] || "simplification";
-        mapping["encapsulation"] = structures[6] || "containment";
-        mapping["depth"] = "complexity levels";
-        break;
-
-      case "flow":
-        mapping["throughput"] = concepts[8] || "rate";
-        mapping["channel"] = structures[1] || "pathway";
-        mapping["bottleneck"] = "constraint";
-        mapping["velocity"] = concepts[7] || "speed";
-        mapping["turbulence"] = structures[8] || "disruption";
-        break;
-
-      case "call-response":
-        mapping["initiation"] = concepts[0] || "stimulus";
-        mapping["answer"] = concepts[1] || "response";
-        mapping["dialogue"] = structures[0] || "exchange";
-        mapping["turn-taking"] = "alternation";
-        mapping["reciprocity"] = concepts[6] || "mutual influence";
-        break;
-
-      default:
-        // Generic mapping
-        mapping["element"] = concepts[0] || "component";
-        mapping["process"] = concepts[4] || "transformation";
-        mapping["structure"] = structures[0] || "organization";
-        mapping["relationship"] = "connection";
-    }
-
-    return mapping;
-  }
-
-  /**
-   * Generates a compelling bridge concept
-   */
-  private generateBridgeConcept(
-    domainA: string,
-    domainB: string,
-    pattern: (typeof ISOMORPHIC_PATTERNS)[0],
-    mapping: Record<string, string>,
+    patternName: string,
   ): string {
-    // More creative templates that actually blend the domains
     const templates = [
-      `${capitalize(domainA)} as ${domainB}-style ${pattern.name}`,
-      `The ${domainB} model of ${domainA}`,
-      `${capitalize(domainA)}: A ${pattern.name} informed by ${domainB}`,
-      `${capitalize(domainB)}-inspired ${pattern.name} in ${domainA}`,
-      `Reimagining ${domainA} through ${domainB}'s ${pattern.name}`,
-      `${capitalize(domainA)}'s hidden ${domainB}: Uncovering ${pattern.name}`,
-      `From ${domainB} to ${domainA}: ${capitalize(pattern.name)} as bridge`,
-      `${capitalize(domainA)} orchestrated with ${domainB} ${pattern.name}`,
+      `[PENDING LLM INSIGHT] ${capitalize(domainA)} viewed through ${domainB}'s ${patternName} structure`,
+      `[PENDING LLM INSIGHT] The ${patternName} of ${domainB} applied to ${domainA}`,
+      `[PENDING LLM INSIGHT] ${capitalize(domainA)} × ${capitalize(domainB)} → (awaiting structural insight)`,
     ];
-
     return templates[Math.floor(Math.random() * templates.length)];
   }
 
   /**
-   * Creates a rich, actionable explanation
+   * Create explanation of what the output means
    */
-  private createRichExplanation(
+  private createExplanation(
     domainA: string,
     domainB: string,
     pattern: (typeof ISOMORPHIC_PATTERNS)[0],
-    mapping: Record<string, string>,
-    bridgeConcept: string,
   ): string {
-    let output = `${domainA.toUpperCase()} × ${domainB.toUpperCase()}\n\n`;
+    return `BISOCIATIVE SYNTHESIS SCAFFOLD
 
-    const mappingEntries = Object.entries(mapping);
-    for (const [key, value] of mappingEntries) {
-      output += `${key}\n  ⟷\n${value}\n\n`;
-    }
+This output contains a STRUCTURED PROMPT for genuine creative insight.
 
-    return output.trim();
+Instead of pre-filled templates, you receive:
+1. A carefully crafted prompt that guides reasoning toward structural insight
+2. Response sections that ensure the connection is JUSTIFIED (not random)
+3. Constraints that keep the output ACTIONABLE (not just clever)
+
+DOMAINS TO CONNECT:
+- Problem Space: "${domainA}"
+- Stimulus Space: "${domainB}"
+
+SUGGESTED PATTERN: ${pattern.name}
+Pattern hints: ${pattern.hints.join(", ")}
+
+TO GET THE INSIGHT:
+The 'llmPrompt' field contains a complete prompt. When processed by Claude, it will generate:
+- The actual structural insight (not a template)
+- A "because chain" explaining WHY the connection exists
+- Concrete application to your problem
+- Awareness of where the analogy breaks down
+
+The scaffold ensures the creative leap is TRACEABLE and USEFUL, not just weird.`;
   }
 
   /**
@@ -1014,7 +711,7 @@ export class BisociativeSynthesisTool {
   private updateDreamGraph(
     domainA: string,
     domainB: string,
-    pattern: (typeof ISOMORPHIC_PATTERNS)[0],
+    patternName: string,
     bridgeConcept: string,
   ): void {
     const timestamp = Date.now();
@@ -1030,7 +727,7 @@ export class BisociativeSynthesisTool {
         content: domainA,
         creationTimestamp: timestamp,
         source: "bisociative_synthesis",
-        metadata: { role: "problem_domain", pattern: pattern.name },
+        metadata: { role: "problem_domain", pattern: patternName },
       });
     } catch (error) {
       // Node may exist
@@ -1042,7 +739,7 @@ export class BisociativeSynthesisTool {
         content: domainB,
         creationTimestamp: timestamp,
         source: "bisociative_synthesis",
-        metadata: { role: "stimulus_domain", pattern: pattern.name },
+        metadata: { role: "stimulus_domain", pattern: patternName },
       });
     } catch (error) {
       // Node may exist
@@ -1056,8 +753,9 @@ export class BisociativeSynthesisTool {
         source: "bisociative_synthesis",
         metadata: {
           role: "bridge_concept",
-          pattern: pattern.name,
+          pattern: patternName,
           domains: [domainA, domainB],
+          isPending: true, // Marked as pending until LLM fills in
         },
       });
     } catch (error) {
@@ -1071,7 +769,7 @@ export class BisociativeSynthesisTool {
         target: bridgeId,
         type: EdgeType.SYNTHESIZED_FROM,
         weight: 0.8,
-        metadata: { pattern: pattern.name, role: "problem_domain" },
+        metadata: { pattern: patternName, role: "problem_domain" },
       });
 
       this.dreamGraph.addEdge({
@@ -1079,7 +777,7 @@ export class BisociativeSynthesisTool {
         target: bridgeId,
         type: EdgeType.SYNTHESIZED_FROM,
         weight: 0.8,
-        metadata: { pattern: pattern.name, role: "stimulus_domain" },
+        metadata: { pattern: patternName, role: "stimulus_domain" },
       });
     } catch (error) {
       console.error("Error adding edges:", error);

@@ -1,27 +1,68 @@
 /**
- * Associative Dreaming Server - Main Implementation
+ * Associative Dreaming Server - Main Implementation (V2.0 - LLM-SCAFFOLDED)
  *
  * This is the core implementation of the Associative Dreaming MCP server.
  * Unlike the Sequential Thinking server which maintains a linear thought history,
  * this server manages a rhizomatic "Dream Graph" that allows for non-linear,
  * associative exploration of the concept space.
+ *
+ * V2.0 ARCHITECTURE CHANGE:
+ * - All tools now return LLM SCAFFOLDS instead of template-filled strings
+ * - The server provides STRUCTURE, Claude provides INSIGHT
+ * - Each output includes a formatted prompt for genuine creative reasoning
+ * - "Because chains" ensure all connections are traceable
+ * - Outputs are ACTIONABLE, not just aesthetically weird
+ *
+ * The Philosophy:
+ * LLMs naturally operate through hyperdimensional pattern-matching. This server
+ * harnesses that capability by providing structured scaffolds that guide Claude
+ * toward productive lateral thinking, rather than trying to simulate creativity
+ * in TypeScript with lookup tables.
  */
 
-import chalk from 'chalk';
-import { DreamGraph, Node, EdgeType } from './graph.js';
-import { SemanticDriftTool, SemanticDriftInput } from './tools/semantic-drift.js';
-import { BisociativeSynthesisTool, BisociativeSynthesisInput } from './tools/bisociative-synthesis.js';
-import { ObliqueConstraintTool, ObliqueConstraintInput } from './tools/oblique-constraint.js';
-import { SerendipityScanTool, SerendipityScanInput } from './tools/serendipity-scan.js';
+import chalk from "chalk";
+import { DreamGraph } from "./graph.js";
+import { SemanticDriftTool } from "./tools/semantic-drift.js";
+import { BisociativeSynthesisTool } from "./tools/bisociative-synthesis.js";
+import { ObliqueConstraintTool } from "./tools/oblique-constraint.js";
+import { SerendipityScanTool } from "./tools/serendipity-scan.js";
+import { MetaAssociationTool } from "./tools/meta-association.js";
+import { loadConfig, getConfig } from "./config.js";
+import {
+  DreamError,
+  ErrorCode,
+  wrapError,
+  isDreamError,
+} from "./utils/errors.js";
+import {
+  validateToolInput,
+  ToolName,
+  SemanticDriftInput,
+  BisociativeSynthesisInput,
+  ObliqueConstraintInput,
+  SerendipityScanInput,
+  MetaAssociationInput,
+} from "./schemas.js";
 
 /**
  * Input type for the server that encapsulates all possible tool inputs
  */
 export type AssociativeDreamingInput =
-  | { tool: 'semantic_drift'; input: SemanticDriftInput }
-  | { tool: 'bisociative_synthesis'; input: BisociativeSynthesisInput }
-  | { tool: 'oblique_constraint'; input: ObliqueConstraintInput }
-  | { tool: 'serendipity_scan'; input: SerendipityScanInput };
+  | { tool: "semantic_drift"; input: SemanticDriftInput }
+  | { tool: "bisociative_synthesis"; input: BisociativeSynthesisInput }
+  | { tool: "oblique_constraint"; input: ObliqueConstraintInput }
+  | { tool: "serendipity_scan"; input: SerendipityScanInput }
+  | { tool: "meta_association"; input: MetaAssociationInput };
+
+/**
+ * Output type that includes both the scaffold and formatted content
+ */
+export interface AssociativeDreamingOutput {
+  content: Array<{ type: string; text: string }>;
+  isError?: boolean;
+  /** The scaffold object for programmatic access (when not an error) */
+  scaffoldData?: any;
+}
 
 /**
  * Main server class that manages the dream graph and tools
@@ -32,176 +73,331 @@ export class AssociativeDreamingServer {
   private bisociativeSynthesisTool: BisociativeSynthesisTool;
   private obliqueConstraintTool: ObliqueConstraintTool;
   private serendipityScanTool: SerendipityScanTool;
-  private disableDreamLogging: boolean;
+  private metaAssociationTool: MetaAssociationTool;
 
   constructor() {
+    // Load configuration
+    loadConfig();
+    const config = getConfig();
+
     this.dreamGraph = new DreamGraph();
     this.semanticDriftTool = new SemanticDriftTool(this.dreamGraph);
-    this.bisociativeSynthesisTool = new BisociativeSynthesisTool(this.dreamGraph);
+    this.bisociativeSynthesisTool = new BisociativeSynthesisTool(
+      this.dreamGraph,
+    );
     this.obliqueConstraintTool = new ObliqueConstraintTool(this.dreamGraph);
     this.serendipityScanTool = new SerendipityScanTool(this.dreamGraph);
-    this.disableDreamLogging = (process.env.DISABLE_DREAM_LOGGING || "").toLowerCase() === "true";
+    this.metaAssociationTool = new MetaAssociationTool(this.dreamGraph);
   }
 
   /**
    * Process a request to the Associative Dreaming server
+   * V2.0: Now returns scaffold-based outputs with LLM prompts
    */
-  public processDream(input: unknown): { content: Array<{ type: string; text: string }>; isError?: boolean } {
+  public processDream(input: unknown): AssociativeDreamingOutput {
     try {
       const validatedInput = this.validateInput(input);
       const result = this.executeToolRequest(validatedInput);
-      
+
       // Log the result if logging is enabled
-      if (!this.disableDreamLogging) {
+      const config = getConfig();
+      if (config.logging.enabled) {
         this.logDream(validatedInput.tool, result);
       }
-      
+
+      // Format the output to emphasize the LLM prompt
+      const formattedOutput = this.formatScaffoldOutput(
+        validatedInput.tool,
+        result,
+      );
+
       return {
-        content: [{
-          type: "text",
-          text: JSON.stringify(result, null, 2)
-        }]
+        content: [
+          {
+            type: "text",
+            text: formattedOutput,
+          },
+        ],
+        scaffoldData: result,
       };
     } catch (error) {
+      // Handle errors with structured format
+      const dreamError = isDreamError(error) ? error : wrapError(error);
+
       return {
-        content: [{
-          type: "text",
-          text: JSON.stringify({
-            error: error instanceof Error ? error.message : String(error),
-            status: 'failed'
-          }, null, 2)
-        }],
-        isError: true
+        content: [
+          {
+            type: "text",
+            text: JSON.stringify(dreamError.toJSON(), null, 2),
+          },
+        ],
+        isError: true,
       };
     }
   }
-  
+
   /**
-   * Validates and normalizes the input
+   * Format scaffold output to emphasize the LLM prompt
+   */
+  private formatScaffoldOutput(toolName: string, result: any): string {
+    const output: string[] = [];
+
+    // Add header
+    output.push(
+      `═══════════════════════════════════════════════════════════════`,
+    );
+    output.push(
+      `  ${toolName.toUpperCase().replace("_", " ")} - LLM SCAFFOLD OUTPUT`,
+    );
+    output.push(
+      `═══════════════════════════════════════════════════════════════`,
+    );
+    output.push("");
+
+    // Add the explanation first
+    if (result.explanation) {
+      output.push(result.explanation);
+      output.push("");
+    }
+
+    // Add the LLM prompt section (most important)
+    if (result.llmPrompt) {
+      output.push(
+        `───────────────────────────────────────────────────────────────`,
+      );
+      output.push(`  LLM PROMPT (Process this for genuine insight)`);
+      output.push(
+        `───────────────────────────────────────────────────────────────`,
+      );
+      output.push("");
+      output.push(result.llmPrompt);
+      output.push("");
+    }
+
+    // Add key data in compact form
+    output.push(
+      `───────────────────────────────────────────────────────────────`,
+    );
+    output.push(`  KEY DATA`);
+    output.push(
+      `───────────────────────────────────────────────────────────────`,
+    );
+
+    // Tool-specific key data
+    switch (toolName) {
+      case "semantic_drift":
+        output.push(`  Anchor: "${result.driftPath?.[0] || "N/A"}"`);
+        output.push(
+          `  Target Distance: ${((result.driftDistance || 0) * 100).toFixed(0)}%`,
+        );
+        output.push(
+          `  Association Hints: ${result.associationHints?.length || 0}`,
+        );
+        break;
+
+      case "bisociative_synthesis":
+        output.push(`  Matrix A: "${result.matrixA}"`);
+        output.push(`  Matrix B: "${result.matrixB}"`);
+        output.push(`  Pattern: ${result.suggestedPattern}`);
+        break;
+
+      case "oblique_constraint":
+        output.push(`  Constraint: "${result.constraint}"`);
+        output.push(`  Type: ${result.constraintType}`);
+        break;
+
+      case "serendipity_scan":
+        output.push(`  Scan Type: ${result.scanType}`);
+        output.push(
+          `  Serendipity Score: ${((result.serendipityScore || 0) * 100).toFixed(0)}%`,
+        );
+        output.push(
+          `  Extracted Concepts: ${result.extractedConcepts?.length || 0}`,
+        );
+        break;
+
+      case "meta_association":
+        output.push(
+          `  Concepts: ${result.extractedConcepts?.filter((c: any) => c.type === "primary").length || 0}`,
+        );
+        output.push(`  Collisions: ${result.collisionMap?.length || 0}`);
+        output.push(
+          `  Chaos Target: ${((result.weirdnessTarget || 0) * 100).toFixed(0)}%`,
+        );
+        break;
+    }
+
+    output.push("");
+    output.push(
+      `═══════════════════════════════════════════════════════════════`,
+    );
+    output.push(`  HOW TO USE THIS OUTPUT`);
+    output.push(
+      `═══════════════════════════════════════════════════════════════`,
+    );
+    output.push("");
+    output.push(
+      '  The "LLM PROMPT" section above is designed to be processed by',
+    );
+    output.push(
+      "  Claude to generate genuine creative insight. The server provides",
+    );
+    output.push("  STRUCTURE; the LLM provides CREATIVITY.");
+    output.push("");
+    output.push("  To get the actual insight:");
+    output.push("  1. Copy the LLM PROMPT section");
+    output.push(
+      "  2. Send it to Claude (or process it in your Claude integration)",
+    );
+    output.push(
+      "  3. The response will contain justified, traceable creative leaps",
+    );
+    output.push("");
+
+    return output.join("\n");
+  }
+
+  /**
+   * Validates and normalizes the input using Zod schemas
    */
   private validateInput(input: unknown): AssociativeDreamingInput {
     const data = input as Record<string, unknown>;
-    
-    // Make sure we have a valid tool name
-    if (!data.tool || typeof data.tool !== 'string') {
-      throw new Error('Invalid request: tool name must be a string');
+
+    // Validate tool name
+    if (!data.tool || typeof data.tool !== "string") {
+      throw new DreamError(
+        ErrorCode.INVALID_INPUT,
+        "Invalid request: tool name must be a string",
+        { field: "tool", received: data.tool },
+      );
     }
-    
-    const toolName = data.tool as string;
+
+    const toolName = data.tool;
     const toolInput = data.input || {};
-    
-    // Validate based on the tool type
-    switch (toolName) {
-      case 'semantic_drift':
-        if (!this.isValidSemanticDriftInput(toolInput)) {
-          throw new Error('Invalid semantic_drift input');
-        }
-        return { tool: toolName, input: toolInput as SemanticDriftInput };
-        
-      case 'bisociative_synthesis':
-        if (!this.isValidBisociativeSynthesisInput(toolInput)) {
-          throw new Error('Invalid bisociative_synthesis input');
-        }
-        return { tool: toolName, input: toolInput as BisociativeSynthesisInput };
-        
-      case 'oblique_constraint':
-        if (!this.isValidObliqueConstraintInput(toolInput)) {
-          throw new Error('Invalid oblique_constraint input');
-        }
-        return { tool: toolName, input: toolInput as ObliqueConstraintInput };
-        
-      case 'serendipity_scan':
-        if (!this.isValidSerendipityScanInput(toolInput)) {
-          throw new Error('Invalid serendipity_scan input');
-        }
-        return { tool: toolName, input: toolInput as SerendipityScanInput };
-        
-      default:
-        throw new Error(`Unknown tool: ${toolName}`);
+
+    // Use Zod schema validation
+    const validationResult = validateToolInput(toolName, toolInput);
+
+    if (!validationResult.success) {
+      throw new DreamError(ErrorCode.INVALID_INPUT, validationResult.error, {
+        tool: toolName,
+        details: validationResult.details,
+      });
     }
+
+    return {
+      tool: toolName as ToolName,
+      input: validationResult.data,
+    } as AssociativeDreamingInput;
   }
-  
+
   /**
    * Executes the appropriate tool based on the input
    */
   private executeToolRequest(input: AssociativeDreamingInput): unknown {
-    switch (input.tool) {
-      case 'semantic_drift':
-        return this.semanticDriftTool.performDrift(input.input);
-        
-      case 'bisociative_synthesis':
-        return this.bisociativeSynthesisTool.performSynthesis(input.input);
-        
-      case 'oblique_constraint':
-        return this.obliqueConstraintTool.generateConstraint(input.input);
-        
-      case 'serendipity_scan':
-        return this.serendipityScanTool.performScan(input.input);
-        
-      default:
-        // This should never happen due to validation in validateInput
-        throw new Error(`Unknown tool: ${(input as any).tool}`);
+    try {
+      switch (input.tool) {
+        case "semantic_drift":
+          return this.semanticDriftTool.performDrift(input.input);
+
+        case "bisociative_synthesis":
+          return this.bisociativeSynthesisTool.performSynthesis(input.input);
+
+        case "oblique_constraint":
+          return this.obliqueConstraintTool.generateConstraint(input.input);
+
+        case "serendipity_scan":
+          return this.serendipityScanTool.performScan(input.input);
+
+        case "meta_association":
+          return this.metaAssociationTool.associate(input.input);
+
+        default:
+          throw new DreamError(
+            ErrorCode.UNKNOWN_TOOL,
+            `Unknown tool: ${(input as any).tool}`,
+            { tool: (input as any).tool },
+          );
+      }
+    } catch (error) {
+      // Re-throw DreamErrors, wrap others
+      if (isDreamError(error)) {
+        throw error;
+      }
+      throw new DreamError(
+        ErrorCode.TOOL_EXECUTION_FAILED,
+        `Tool '${input.tool}' failed: ${error instanceof Error ? error.message : String(error)}`,
+        { tool: input.tool },
+        true, // Potentially recoverable
+      );
     }
   }
-  
+
   /**
    * Logs dream tool executions with colorized output
    */
   private logDream(toolName: string, result: any): void {
-    let prefix = '';
-    let border = '';
-    
-    switch (toolName) {
-      case 'semantic_drift':
-        prefix = chalk.blue('DRIFT');
-        border = '~'.repeat(40);
-        break;
-        
-      case 'bisociative_synthesis':
-        prefix = chalk.magenta('SYNTHESIS');
-        border = '*'.repeat(40);
-        break;
-        
-      case 'oblique_constraint':
-        prefix = chalk.yellow('CONSTRAINT');
-        border = '='.repeat(40);
-        break;
-        
-      case 'serendipity_scan':
-        prefix = chalk.green('SERENDIPITY');
-        border = '+'.repeat(40);
-        break;
-        
-      default:
-        prefix = chalk.white('UNKNOWN TOOL');
-        border = '-'.repeat(40);
-    }
-    
-    // Format a summary of the result based on the tool type
-    let summary = '';
-    if (toolName === 'semantic_drift' && 'newConcept' in result) {
-      summary = `${result.newConcept} (drift: ${result.driftDistance.toFixed(2)})`;
-    } else if (toolName === 'bisociative_synthesis' && 'bridgeConcept' in result) {
-      summary = `${result.bridgeConcept} (pattern: ${result.pattern})`;
-    } else if (toolName === 'oblique_constraint' && 'constraint' in result) {
-      summary = `${result.constraint} (type: ${result.constraintType})`;
-    } else if (toolName === 'serendipity_scan' && 'discoveredConcept' in result) {
-      summary = `${result.discoveredConcept} (score: ${result.serendipityScore.toFixed(2)})`;
+    const config = getConfig();
+
+    let prefix = "";
+    let border = "";
+
+    if (config.logging.colorized) {
+      switch (toolName) {
+        case "semantic_drift":
+          prefix = chalk.blue("DRIFT");
+          border = "~".repeat(40);
+          break;
+        case "bisociative_synthesis":
+          prefix = chalk.magenta("SYNTHESIS");
+          border = "*".repeat(40);
+          break;
+        case "oblique_constraint":
+          prefix = chalk.yellow("CONSTRAINT");
+          border = "=".repeat(40);
+          break;
+        case "serendipity_scan":
+          prefix = chalk.green("SERENDIPITY");
+          border = "+".repeat(40);
+          break;
+        case "meta_association":
+          prefix = chalk.cyan("META-ASSOCIATION");
+          border = "⚡".repeat(40);
+          break;
+        default:
+          prefix = chalk.white("UNKNOWN TOOL");
+          border = "-".repeat(40);
+      }
     } else {
-      summary = 'Result: ' + JSON.stringify(result).substring(0, 100) + '...';
+      prefix = toolName.toUpperCase();
+      border = "-".repeat(40);
     }
-    
-    // Log the formatted dream
+
+    // Format a summary of the result
+    let summary = "";
+    if (result.llmPrompt) {
+      summary = `LLM scaffold generated (${result.llmPrompt.length} chars)`;
+    } else {
+      summary = "Result: " + JSON.stringify(result).substring(0, 100) + "...";
+    }
+
+    // Build log message
+    const timestamp = config.logging.includeTimestamp
+      ? `[${new Date().toISOString()}] `
+      : "";
+
     console.error(`
 ${border}
-${prefix} | ${summary}
+${timestamp}${prefix} | ${summary}
 ${border}`);
 
     // Graph statistics
     const graphStats = this.getDreamGraphStatistics();
-    console.error(`Dream Graph: ${graphStats.nodeCount} nodes, ${graphStats.edgeCount} edges, ${graphStats.diversity.toFixed(2)} diversity`);
+    console.error(
+      `Dream Graph: ${graphStats.nodeCount} nodes, ${graphStats.edgeCount} edges, ${graphStats.diversity.toFixed(2)} diversity`,
+    );
   }
-  
+
   /**
    * Gets statistics about the current dream graph
    */
@@ -209,55 +405,31 @@ ${border}`);
     const nodes = this.dreamGraph.getAllNodes();
     const edges = this.dreamGraph.getAllEdges();
     const diversity = this.dreamGraph.calculateDiversity();
-    
+
     return {
       nodeCount: nodes.length,
       edgeCount: edges.length,
-      diversity
+      diversity,
     };
   }
-  
+
   /**
-   * Input validation helpers
+   * Public accessor for the dream graph (used by resources)
    */
-  private isValidSemanticDriftInput(input: unknown): input is SemanticDriftInput {
-    const data = input as Record<string, unknown>;
-    return typeof data === 'object' && 
-           data !== null && 
-           typeof data.anchorConcept === 'string' && 
-           (data.driftMagnitude === undefined || 
-            (typeof data.driftMagnitude === 'number' && 
-             data.driftMagnitude >= 0 && 
-             data.driftMagnitude <= 1));
-  }
-  
-  private isValidBisociativeSynthesisInput(input: unknown): input is BisociativeSynthesisInput {
-    const data = input as Record<string, unknown>;
-    return typeof data === 'object' && 
-           data !== null && 
-           typeof data.matrixA === 'string' && 
-           (data.matrixB === undefined || typeof data.matrixB === 'string') && 
-           (data.blendType === undefined || typeof data.blendType === 'string');
-  }
-  
-  private isValidObliqueConstraintInput(input: unknown): input is ObliqueConstraintInput {
-    const data = input as Record<string, unknown>;
-    return typeof data === 'object' && 
-           data !== null && 
-           typeof data.currentBlock === 'string' && 
-           (data.constraintType === undefined || 
-            typeof data.constraintType === 'string');
-  }
-  
-  private isValidSerendipityScanInput(input: unknown): input is SerendipityScanInput {
-    const data = input as Record<string, unknown>;
-    return typeof data === 'object' && 
-           data !== null && 
-           typeof data.currentContext === 'string' && 
-           (data.noveltyThreshold === undefined || 
-            (typeof data.noveltyThreshold === 'number' && 
-             data.noveltyThreshold >= 0 && 
-             data.noveltyThreshold <= 1)) &&
-           (data.scanType === undefined || typeof data.scanType === 'string');
+  public getDreamGraph(): DreamGraph {
+    return this.dreamGraph;
   }
 }
+
+// Re-export types for backward compatibility
+export type { SemanticDriftInput } from "./schemas.js";
+export type { BisociativeSynthesisInput } from "./schemas.js";
+export type { ObliqueConstraintInput } from "./schemas.js";
+export type { SerendipityScanInput } from "./schemas.js";
+export type { MetaAssociationInput } from "./schemas.js";
+
+// Export scaffold types for advanced usage
+export type {
+  CreativeScaffold,
+  ScaffoldType,
+} from "./prompts/creative-scaffolds.js";

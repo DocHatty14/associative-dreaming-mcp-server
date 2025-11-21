@@ -1,9 +1,11 @@
 /**
  * Rhizomatic Graph - Core data structure for Associative Dreaming
  *
- * Unlike the linear thoughts of Sequential Thinking, this implements a network structure
- * where any node (concept) can connect to any other node through weighted, labeled edges.
- * This allows for non-linear exploration of the concept space.
+ * OPTIMIZED VERSION:
+ * - Pre-computed adjacency lists for O(1) edge lookups
+ * - Approximate betweenness centrality using sampling (Brandes-inspired)
+ * - Cached computations with invalidation
+ * - O(n+m) shortest path instead of O(n³)
  */
 export interface Edge {
     source: string;
@@ -13,13 +15,13 @@ export interface Edge {
     metadata?: Record<string, any>;
 }
 export declare enum EdgeType {
-    METAPHOR_FOR = "metaphor_for",// Concept A is a metaphor for concept B
-    CONTRASTS_WITH = "contrasts_with",// Concept A is opposite of concept B
-    REMINDS_OF = "reminds_of",// Concept A triggers memory of concept B
-    SYNTHESIZED_FROM = "synthesized_from",// Concept C was created from concepts A and B
-    CONTAINS = "contains",// Concept A is a superset of concept B
-    SPECIALIZES = "specializes",// Concept A is a specific instance of concept B
-    TRANSFORMS_INTO = "transforms_into",// Concept A can become concept B
+    METAPHOR_FOR = "metaphor_for",
+    CONTRASTS_WITH = "contrasts_with",
+    REMINDS_OF = "reminds_of",
+    SYNTHESIZED_FROM = "synthesized_from",
+    CONTAINS = "contains",
+    SPECIALIZES = "specializes",
+    TRANSFORMS_INTO = "transforms_into",
     CAUSES = "causes"
 }
 export interface Node {
@@ -34,11 +36,24 @@ export interface Node {
 /**
  * The Dream Graph - main data structure for Associative Dreaming
  * Implements a weighted, directed graph with typed edges
+ *
+ * OPTIMIZATIONS:
+ * - Adjacency list for O(1) edge access
+ * - Reverse adjacency for incoming edges
+ * - Cached computations
+ * - Sampled betweenness for large graphs
  */
 export declare class DreamGraph {
     private nodes;
     private edges;
     private traversalHistory;
+    private outgoingEdges;
+    private incomingEdges;
+    private cache;
+    /**
+     * Invalidate all cached computations
+     */
+    private invalidateCache;
     /**
      * Adds a concept node to the dream graph
      */
@@ -52,11 +67,11 @@ export declare class DreamGraph {
      */
     visitNode(nodeId: string): void;
     /**
-     * Gets all outgoing edges from a node
+     * Gets all outgoing edges from a node - O(1)
      */
     getEdgesFrom(nodeId: string): Edge[];
     /**
-     * Gets all incoming edges to a node
+     * Gets all incoming edges to a node - O(1)
      */
     getEdgesTo(nodeId: string): Edge[];
     /**
@@ -76,7 +91,7 @@ export declare class DreamGraph {
      */
     getAllEdges(): Edge[];
     /**
-     * Gets the traversal history (path of exploration)
+     * Gets the traversal history
      */
     getTraversalHistory(): string[];
     /**
@@ -85,33 +100,47 @@ export declare class DreamGraph {
     getCurrentNode(): Node | undefined;
     /**
      * Finds nodes that could serve as bridges between disconnected clusters
-     * Used by the serendipity_scan tool to identify potential "bridging concepts"
      */
     findStructuralHoles(): Node[];
     /**
-     * Detects communities/clusters using simple edge-weight based clustering
-     * Returns a map of cluster IDs to sets of node IDs
+     * Detects communities/clusters using edge-weight based clustering
+     * Uses cached result if available
      */
-    detectClusters(): Map<string, Set<string>>;
+    detectClusters(minWeight?: number): Map<string, Set<string>>;
     /**
-     * DFS helper for cluster detection
-     * Traverses the graph following edges above a minimum weight threshold
+     * DFS helper for cluster detection - uses adjacency list
      */
     private dfs;
     /**
-     * Calculates betweenness centrality (simplified)
-     * Measures how many shortest paths pass through this node
-     * Returns a normalized value between 0 and 1
+     * OPTIMIZED: Single-source shortest path using BFS - O(n+m)
+     * Returns distances from source to all reachable nodes
+     */
+    private bfsDistances;
+    /**
+     * OPTIMIZED: Shortest path length between two nodes - O(n+m)
+     */
+    shortestPathLength(sourceId: string, targetId: string): number;
+    /**
+     * OPTIMIZED: Approximate betweenness centrality using sampling
+     * Based on Brandes' algorithm with random sampling for large graphs
+     * Complexity: O(k * (n + m)) where k is sample size
      */
     calculateBetweenness(nodeId: string): number;
     /**
-     * Finds all shortest paths between two nodes (BFS)
-     * Returns an array of paths, where each path is an array of node IDs
+     * Count shortest paths from source to target that pass through nodeId
      */
-    private findAllShortestPaths;
+    private countPathsThrough;
     /**
-     * Finds true bridge nodes connecting different clusters
-     * Returns nodes with their connected clusters and betweenness scores
+     * Count shortest paths from intermediate to target
+     */
+    private countPathsFromTo;
+    /**
+     * Random sampling helper
+     */
+    private randomSample;
+    /**
+     * Finds bridge nodes connecting different clusters
+     * Uses cached result if available
      */
     findBridgeNodes(): Array<{
         nodeId: string;
@@ -120,7 +149,6 @@ export declare class DreamGraph {
     }>;
     /**
      * Finds structural gaps - concepts that should be connected but aren't
-     * Returns pairs of concepts with reasons why they might be related
      */
     findStructuralGaps(): Array<{
         concept1: string;
@@ -129,7 +157,6 @@ export declare class DreamGraph {
     }>;
     /**
      * Calculates the semantic diversity of the graph
-     * Higher values indicate more diverse concepts
      */
     calculateDiversity(): number;
     /**
